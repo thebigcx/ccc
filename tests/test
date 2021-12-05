@@ -1,4 +1,6 @@
-asm {
-_start:
-    ret
+int32 x;
+
+int32 main()
+{
+    x = x + 1;
 }

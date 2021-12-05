@@ -82,13 +82,17 @@ static int gen_ident(struct ast *ast, FILE *file)
     return r;
 }
 
+static void gen_block(struct ast *ast, FILE *file)
+{
+    for (unsigned int i = 0; i < ast->block.cnt; i++)
+        gen_code(ast->block.statements[i], file);
+}
+
 static void gen_funcdef(struct ast *ast, FILE *file)
 {
+    fprintf(file, "\t.global %s\n", ast->funcdef.name); // TODO: storage class
     fprintf(file, "%s:\n", ast->funcdef.name);
-
-    for (unsigned int i = 0; i < ast->funcdef.block->block.cnt; i++)
-        gen_code(ast->funcdef.block->block.statements[i], file);
-
+    gen_block(ast->funcdef.block, file);
     fprintf(file, "\tret\n");
 }
 
@@ -116,6 +120,9 @@ int gen_code(struct ast *ast, FILE *file)
             return NOREG;
         case A_ASM:
             gen_inlineasm(ast, file);
+            return NOREG;
+        case A_BLOCK:
+            gen_block(ast, file);
             return NOREG;
     }
 

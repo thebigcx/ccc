@@ -128,29 +128,14 @@ static int typename()
     return type;
 }
 
-struct ast *statement()
+static int istype(int token)
 {
-    struct ast *ast = binexpr();
-    expect(T_SEMI);
-    return ast;
+    return token == T_INT8  || token == T_INT16  || token == T_INT32  || token == T_INT64  || 
+           token == T_UINT8 || token == T_UINT16 || token == T_UINT32 || token == T_UINT64 || 
+           token == T_FLOAT32 || token == T_FLOAT64;
 }
 
-static struct ast *block()
-{
-    struct ast *block = calloc(1, sizeof(struct ast));
-    block->type = A_BLOCK;
-
-    expect(T_LBRACE);
-
-    while (curr()->type != T_RBRACE)
-    {
-        struct ast *ast = statement();
-        block->block.statements = realloc(block->block.statements, ++block->block.cnt * sizeof(struct ast*));
-        block->block.statements[block->block.cnt - 1] = ast;
-    }
-
-    return block;
-}
+static struct ast *block();
 
 static struct ast *decl()
 {
@@ -164,13 +149,16 @@ static struct ast *decl()
         // TODO: parameters
         next();
         expect(T_RPAREN);
-
+        expect(T_LBRACE);
+    
         struct ast *ast = malloc(sizeof(struct ast));
         ast->type = A_FUNCDEF;
 
         ast->funcdef.name    = strdup(name); 
         ast->funcdef.rettype = type;
         ast->funcdef.block   = block();
+
+        expect(T_RBRACE);
 
         return ast;
     }
@@ -182,8 +170,41 @@ static struct ast *decl()
         ast->vardef.name = strdup(name);
         ast->vardef.type = type; // TODO: assignent
 
+        expect(T_SEMI);
         return ast;
     }
+}
+
+static struct ast *statement()
+{
+    struct ast *ast;
+
+    if (curr()->type == T_ASM)
+        ast = inlineasm();
+    else if (istype(curr()->type))
+        ast = decl();
+    else
+    {
+        ast = binexpr();
+        expect(T_SEMI);
+    }
+    
+    return ast;
+}
+
+static struct ast *block()
+{
+    struct ast *block = calloc(1, sizeof(struct ast));
+    block->type = A_BLOCK;
+
+    while (curr()->type != T_RBRACE && curr()->type != T_EOF)
+    {
+        struct ast *ast = statement();
+        block->block.statements = realloc(block->block.statements, ++block->block.cnt * sizeof(struct ast*));
+        block->block.statements[block->block.cnt - 1] = ast;
+    }
+
+    return block;
 }
 
 int parse(struct token *toks, struct ast *ast)
@@ -193,7 +214,8 @@ int parse(struct token *toks, struct ast *ast)
     
     //struct ast *tree = decl();
     //struct ast *tree = statement();
-    struct ast *tree = inlineasm();
+    //struct ast *tree = inlineasm();
+    struct ast *tree = block();
     memcpy(ast, tree, sizeof(struct ast));
 
     return 0;
