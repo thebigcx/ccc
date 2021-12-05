@@ -3,6 +3,7 @@ SRC = $(wildcard src/*.c)
 OBJ = $(patsubst %.c, %.o, $(SRC))
 
 CFLAGS = -Wall -Wextra -Werror=implicit-function-declaration -Wno-unused-function -g -Iinclude
+LDFLAGS =
 
 TARG = dist/compiler
 
@@ -13,7 +14,7 @@ all: $(TARG)
 $(TARG): $(OBJ)
 	@mkdir -p dist
 	@echo "LD    $@"
-	@$(CC) -o $@ $^
+	@$(CC) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
 	@echo "CC    $@"

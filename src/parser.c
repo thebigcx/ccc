@@ -102,6 +102,8 @@ static struct ast *binexpr()
     struct ast *rhs = binexpr();
 
     struct ast *expr = malloc(sizeof(struct ast));
+    expr->type = A_BINOP;
+
     expr->binop.lhs = lhs;
     expr->binop.rhs = rhs;
     expr->binop.op  = op;
