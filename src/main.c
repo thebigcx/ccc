@@ -1,33 +1,81 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
+#include <string.h>
 
+#include <preproc.h>
 #include <lexer.h>
 #include <parser.h>
 #include <gen.h>
 
-int main(int argc, char **argv)
-{
-    (void)argc;
+const char *infile = NULL, *outfile = NULL;
 
-    FILE *f = fopen(argv[1], "r");
-    
+char *readfile(FILE *f)
+{
     fseek(f, 0, SEEK_END);
     
     size_t len = ftell(f);
-    char *code = malloc(len + 1);
+    char *buf = malloc(len + 1);
 
     fseek(f, 0, SEEK_SET);
 
-    fread(code, 1, len, f);
-    code[len] = 0;
+    fread(buf, 1, len, f);
+    buf[len] = 0;
+
+    fclose(f);
+    return buf;
+}
+
+int main(int argc, char **argv)
+{
+    outfile = "out.s";
+
+    char opt;
+    while ((opt = getopt(argc, argv, "o:s:")) != -1)
+    {
+        switch (opt)
+        {
+            case 'o':
+                outfile = strdup(optarg);
+                break;
+            case 's':
+                infile = strdup(optarg);
+                break;
+            default:
+                printf("Invalid option '%c'\n", opt);
+                return -1;
+        }
+    }
+
+    if (!infile)
+    {
+        printf("No input file specified!\n");
+        return -1;
+    }
+
+    FILE *in = fopen(infile, "r");
+    if (!in)
+    {
+        perror("Error");
+        return -1;
+    }
+
+    char *code = readfile(in);    
+    char *preproc = preprocess(code);
 
     struct token *toks = NULL;
-    tokenize(code, &toks);
+    tokenize(preproc, &toks);
 
     struct ast ast;
     parse(toks, &ast);
 
-    FILE *out = fopen("out.s", "w+");
+    FILE *out = fopen(outfile, "w+");
+    if (!out)
+    {
+        perror("Error");
+        return -1;
+    }
+
     gen_code(&ast, out);
     fclose(out);
 
