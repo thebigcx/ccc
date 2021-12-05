@@ -67,14 +67,28 @@ static struct ast *primary()
     {
         ast->type = A_INTLIT;
         ast->intlit.ival = curr()->v.ival;
+        next();
     }
     else if (curr()->type == T_IDENT)
     {
-        ast->type = A_IDENT;
-        ast->ident.name = strdup(curr()->v.sval);
+        char *name = curr()->v.sval;
+
+        next();
+        if (curr()->type == T_LPAREN)
+        {
+            next();
+            expect(T_RPAREN);
+
+            ast->type = A_CALL;
+            ast->call.name = strdup(name);
+        }
+        else
+        {
+            ast->type = A_IDENT;
+            ast->ident.name = strdup(name);
+        }
     }
 
-    next();
     return ast;
 }
 

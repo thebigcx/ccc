@@ -1,7 +1,7 @@
 #include <gen.h>
 #include <assert.h>
 
-static const char *regs[] = { "%rax", "%rbx", "%rcx", "%rdx" };
+static const char *regs[] = { "%r8", "%r9", "%r10", "%r11" };
 
 #define REGCNT (sizeof(regs) / sizeof(regs[0]))
 #define NOREG (-1)
@@ -101,6 +101,14 @@ static void gen_inlineasm(struct ast *ast, FILE *file)
     fprintf(file, "%s", ast->inasm.code);
 }
 
+static int gen_call(struct ast *ast, FILE *file)
+{
+    int r = regalloc();
+    fprintf(file, "\tcall %s\n", ast->call.name);
+    fprintf(file, "\tmov %%rax, %s\n", regs[r]);
+    return r;
+}
+
 // Generate code for an AST node
 int gen_code(struct ast *ast, FILE *file)
 {
@@ -124,6 +132,8 @@ int gen_code(struct ast *ast, FILE *file)
         case A_BLOCK:
             gen_block(ast, file);
             return NOREG;
+        case A_CALL:
+            return gen_call(ast, file);
     }
 
     return NOREG;

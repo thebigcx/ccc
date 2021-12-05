@@ -17,7 +17,8 @@ enum AST_TYPE
     A_VARDEF,
     A_BLOCK,
     A_IDENT,
-    A_ASM
+    A_ASM,
+    A_CALL
 };
 
 enum TYPENAME
@@ -73,7 +74,11 @@ struct ast
         {
             char *code;
         } inasm;
-        
+
+        struct
+        {
+            char *name;
+        } call;
     };
 };
 
