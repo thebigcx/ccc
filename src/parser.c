@@ -31,7 +31,12 @@ static int termin()
 
 static int expect(int t)
 {
-    if (curr()->type != t) return -1;
+    if (curr()->type != t)
+    {
+        printf("Expected '%d', got '%d'\n", t, curr()->type);
+        return -1;
+    }
+
     next();
     return 0;
 }
@@ -41,10 +46,11 @@ static int operator()
     int op = -1;
     switch (curr()->type)
     {
-        case T_PLUS:  op = OP_PLUS; break;
-        case T_MINUS: op = OP_MINUS; break;
-        case T_STAR:  op = OP_MUL; break;
-        case T_SLASH: op = OP_DIV; break;
+        case T_PLUS:  op = OP_PLUS;   break;
+        case T_MINUS: op = OP_MINUS;  break;
+        case T_STAR:  op = OP_MUL;    break;
+        case T_SLASH: op = OP_DIV;    break;
+        case T_EQ:    op = OP_ASSIGN; break;
         default:
             break; // TODO: error
     }
@@ -57,8 +63,16 @@ static struct ast *primary()
 {
     struct ast *ast = malloc(sizeof(struct ast));
 
-    ast->type = A_INTLIT;
-    ast->intlit.ival = curr()->v.ival;
+    if (curr()->type == T_INTLIT)
+    {
+        ast->type = A_INTLIT;
+        ast->intlit.ival = curr()->v.ival;
+    }
+    else if (curr()->type == T_IDENT)
+    {
+        ast->type = A_IDENT;
+        ast->ident.name = strdup(curr()->v.sval);
+    }
 
     next();
     return ast;
@@ -79,6 +93,17 @@ static struct ast *binexpr()
     expr->binop.op  = op;
 
     return expr;
+}
+
+static struct ast *inlineasm()
+{
+    struct ast *ast = malloc(sizeof(struct ast));
+    ast->type = A_ASM;
+    
+    ast->inasm.code = strdup(curr()->v.sval);
+
+    next();
+    return ast;
 }
 
 static int typename()
@@ -103,6 +128,30 @@ static int typename()
     return type;
 }
 
+struct ast *statement()
+{
+    struct ast *ast = binexpr();
+    expect(T_SEMI);
+    return ast;
+}
+
+static struct ast *block()
+{
+    struct ast *block = calloc(1, sizeof(struct ast));
+    block->type = A_BLOCK;
+
+    expect(T_LBRACE);
+
+    while (curr()->type != T_RBRACE)
+    {
+        struct ast *ast = statement();
+        block->block.statements = realloc(block->block.statements, ++block->block.cnt * sizeof(struct ast*));
+        block->block.statements[block->block.cnt - 1] = ast;
+    }
+
+    return block;
+}
+
 static struct ast *decl()
 {
     int type = typename();
@@ -113,13 +162,15 @@ static struct ast *decl()
     if (curr()->type == T_LPAREN)
     {
         // TODO: parameters
+        next();
         expect(T_RPAREN);
 
         struct ast *ast = malloc(sizeof(struct ast));
         ast->type = A_FUNCDEF;
-        
+
+        ast->funcdef.name    = strdup(name); 
         ast->funcdef.rettype = type;
-        //ast->funcdef.block   = block_statement();
+        ast->funcdef.block   = block();
 
         return ast;
     }
@@ -140,7 +191,9 @@ int parse(struct token *toks, struct ast *ast)
     s_parser.toks = toks;
     s_parser.i    = 0;
     
-    struct ast *tree = decl();
+    //struct ast *tree = decl();
+    //struct ast *tree = statement();
+    struct ast *tree = inlineasm();
     memcpy(ast, tree, sizeof(struct ast));
 
     return 0;

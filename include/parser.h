@@ -5,7 +5,8 @@ enum OPERATOR
     OP_PLUS,
     OP_MINUS,
     OP_MUL,
-    OP_DIV
+    OP_DIV,
+    OP_ASSIGN
 };
 
 enum AST_TYPE
@@ -14,7 +15,9 @@ enum AST_TYPE
     A_INTLIT,
     A_FUNCDEF,
     A_VARDEF,
-    A_BLOCK
+    A_BLOCK,
+    A_IDENT,
+    A_ASM
 };
 
 enum TYPENAME
@@ -46,6 +49,7 @@ struct ast
             int rettype; // Return type
             // TODO: parameters
             struct ast *block;
+            char *name;
         } funcdef;
 
         struct // TODO: storage class
@@ -53,6 +57,23 @@ struct ast
             int type;
             char *name;
         } vardef;
+
+        struct
+        {
+            char *name;
+        } ident;
+
+        struct
+        {
+            struct ast **statements;
+            unsigned int cnt;
+        } block;
+
+        struct
+        {
+            char *code;
+        } inasm;
+        
     };
 };
 

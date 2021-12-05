@@ -1,1 +1,4 @@
-int32 x;
+asm {
+_start:
+    ret
+}

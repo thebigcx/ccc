@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <util.h>
+#include <stdio.h>
 
 struct keyword
 {
@@ -47,6 +48,25 @@ static void pushi(unsigned long i, struct token **toks, size_t *len)
     push((struct token) { .type = T_INTLIT, .v.ival = i }, toks, len);
 }
 
+static int pushasm(const char *str, struct token **toks, size_t *len)
+{
+    const char *str1 = str;
+
+    while (*str++ != '{');    
+    while (*str++ != '\n');
+
+    char asmbuf[1024]; // TODO: dynamic
+    char *asmptr = asmbuf;
+
+    while (*str != '}') *asmptr++ = *str++;
+    *asmptr = 0;
+    str++;
+
+    push((struct token) { .type = T_ASM, .v.sval = strdup(asmbuf) }, toks, len);
+
+    return str - str1;
+}
+
 static void push_keyword(const char *str, struct token **toks, size_t *len)
 {
     int type = 0; // Will not fail, this function is preceded by a check to iskeyword()
@@ -80,6 +100,7 @@ int tokenize(const char *str, struct token **toks)
             case ']': pushnv(T_RBRACK, toks, &i); str++; continue;
             case '{': pushnv(T_LBRACE, toks, &i); str++; continue;
             case '}': pushnv(T_RBRACE, toks, &i); str++; continue;
+            case '=': pushnv(T_EQ,     toks, &i); str++; continue;
         }
 
         if (isspace(*str))
@@ -93,12 +114,17 @@ int tokenize(const char *str, struct token **toks)
             for (j = 0; isidentc(*str) && j < 63; j++, str++) ident[j] = *str;
             ident[j] = 0;
 
-            if (iskeyword(ident))
+            if (!strcmp(ident, "asm"))
+                str += pushasm(str, toks, &i);
+            else if (iskeyword(ident))
                 push_keyword(ident, toks, &i);
             else
                 push_ident(ident, toks, &i);
-
-            str++;
+        }
+        else
+        {
+            printf("Invalid token: '%c'\n", *str);
+            abort();
         }
     }
 

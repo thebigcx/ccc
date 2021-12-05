@@ -14,15 +14,16 @@ int main(int argc, char **argv)
     fseek(f, 0, SEEK_END);
     
     size_t len = ftell(f);
-    char *code = malloc(len);
+    char *code = malloc(len + 1);
 
     fseek(f, 0, SEEK_SET);
 
     fread(code, 1, len, f);
+    code[len] = 0;
 
     struct token *toks = NULL;
     tokenize(code, &toks);
-    
+
     struct ast ast;
     parse(toks, &ast);
 

@@ -13,11 +13,15 @@ enum TOKTYPE
 
     T_IDENT,
 
+    T_EQ,
+
     T_INT8, T_INT16, T_INT32, T_INT64,
     T_UINT8, T_UINT16, T_UINT32, T_UINT64,
     T_FLOAT32, T_FLOAT64,
 
-    T_LPAREN, T_RPAREN, T_LBRACK, T_RBRACK, T_LBRACE, T_RBRACE
+    T_LPAREN, T_RPAREN, T_LBRACK, T_RBRACK, T_LBRACE, T_RBRACE,
+
+    T_ASM
 };
 
 // Type from 'enum TOKTYPE' and string or integer value
