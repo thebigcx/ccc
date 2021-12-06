@@ -6,7 +6,8 @@ enum OPERATOR
     OP_MINUS,
     OP_MUL,
     OP_DIV,
-    OP_ASSIGN
+    OP_ASSIGN,
+    OP_EQUAL
 };
 
 enum AST_TYPE
@@ -18,7 +19,8 @@ enum AST_TYPE
     A_BLOCK,
     A_IDENT,
     A_ASM,
-    A_CALL
+    A_CALL,
+    A_RETURN
 };
 
 enum TYPENAME
@@ -79,6 +81,11 @@ struct ast
         {
             char *name;
         } call;
+
+        struct
+        {
+            struct ast *val;
+        } ret;
     };
 };
 

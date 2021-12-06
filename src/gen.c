@@ -57,6 +57,18 @@ static int gen_binop(struct ast *ast, FILE *file)
             fprintf(file, "\timul %s, %s\n", regs[r1], regs[r2]);
             break;
         case OP_DIV: break;
+
+        case OP_EQUAL:
+        {
+            int r = regalloc();
+            fprintf(file, "\tcmp %s, %s\n", regs[r1], regs[r2]);
+            fprintf(file, "\tsete %s\n", regs[r]);
+            
+            regfree(r1);
+            regfree(r2);
+            return r;
+        }
+
     }
 
     regfree(r1);
@@ -109,6 +121,17 @@ static int gen_call(struct ast *ast, FILE *file)
     return r;
 }
 
+static void gen_return(struct ast *ast, FILE *file)
+{
+    if (ast->ret.val)
+    {
+        int r = gen_code(ast->ret.val, file);
+        fprintf(file, "\tmov %s, %%rax\n", regs[r]);
+    }
+    
+    fprintf(file, "\tret\n");
+}
+
 // Generate code for an AST node
 int gen_code(struct ast *ast, FILE *file)
 {
@@ -134,6 +157,9 @@ int gen_code(struct ast *ast, FILE *file)
             return NOREG;
         case A_CALL:
             return gen_call(ast, file);
+        case A_RETURN:
+            gen_return(ast, file);
+            return NOREG;
     }
 
     return NOREG;

@@ -51,6 +51,7 @@ static int operator()
         case T_STAR:  op = OP_MUL;    break;
         case T_SLASH: op = OP_DIV;    break;
         case T_EQ:    op = OP_ASSIGN; break;
+        case T_EQEQ:  op = OP_EQUAL;  break;
         default:
             break; // TODO: error
     }
@@ -191,6 +192,20 @@ static struct ast *decl()
     }
 }
 
+static struct ast *return_statement()
+{
+    next();
+
+    struct ast *ast = calloc(1, sizeof(struct ast));
+    ast->type = A_RETURN;
+    
+    if (curr()->type != T_SEMI)
+        ast->ret.val = binexpr();
+
+    expect(T_SEMI);
+    return ast;
+}
+
 static struct ast *statement()
 {
     struct ast *ast;
@@ -199,6 +214,8 @@ static struct ast *statement()
         ast = inlineasm();
     else if (istype(curr()->type))
         ast = decl();
+    else if (curr()->type == T_RETURN)
+        ast = return_statement();
     else
     {
         ast = binexpr();
@@ -228,9 +245,6 @@ int parse(struct token *toks, struct ast *ast)
     s_parser.toks = toks;
     s_parser.i    = 0;
     
-    //struct ast *tree = decl();
-    //struct ast *tree = statement();
-    //struct ast *tree = inlineasm();
     struct ast *tree = block();
     memcpy(ast, tree, sizeof(struct ast));
 

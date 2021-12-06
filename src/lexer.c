@@ -14,7 +14,12 @@ struct keyword
 
 static struct keyword keywords[] =
 {
-    { "int32", T_INT32 }
+    { "int32",  T_INT32  },
+    { "return", T_RETURN },
+    { "if",     T_IF     },
+    { "else",   T_ELSE   },
+    { "while",  T_WHILE  },
+    { "for",    T_FOR    }
 };
 
 // Tests whether 'c' is a valid character in an indentifier - letters, numbers, or '_'
@@ -100,7 +105,16 @@ int tokenize(const char *str, struct token **toks)
             case ']': pushnv(T_RBRACK, toks, &i); str++; continue;
             case '{': pushnv(T_LBRACE, toks, &i); str++; continue;
             case '}': pushnv(T_RBRACE, toks, &i); str++; continue;
-            case '=': pushnv(T_EQ,     toks, &i); str++; continue;
+        
+            case '=':
+                if (*(++str) == '=')
+                {
+                    pushnv(T_EQEQ, toks, &i);
+                    str++;
+                }
+                else
+                    pushnv(T_EQ, toks, &i);
+                continue;
         }
 
         if (isspace(*str))
