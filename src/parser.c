@@ -26,7 +26,8 @@ static struct token *curr()
 // Terminator
 static int termin()
 {
-    return curr()->type == T_SEMI;
+    int t = curr()->type;
+    return t == T_SEMI || t == T_RPAREN;
 }
 
 static int expect(int t)
@@ -206,6 +207,32 @@ static struct ast *return_statement()
     return ast;
 }
 
+static struct ast *if_statement()
+{
+    next();
+    expect(T_LPAREN);
+
+    struct ast *ast = calloc(1, sizeof(struct ast));
+    ast->type = A_IFELSE;
+
+    ast->ifelse.cond = binexpr();
+    expect(T_RPAREN);
+
+    expect(T_LBRACE);
+    ast->ifelse.ifblock = block();
+    expect(T_RBRACE);
+
+    if (curr()->type == T_ELSE)
+    {
+        next();
+        expect(T_LBRACE);
+        ast->ifelse.elseblock = block();
+        expect(T_RBRACE);
+    }
+
+    return ast;
+}
+
 static struct ast *statement()
 {
     struct ast *ast;
@@ -216,6 +243,8 @@ static struct ast *statement()
         ast = decl();
     else if (curr()->type == T_RETURN)
         ast = return_statement();
+    else if (curr()->type == T_IF)
+        ast = if_statement();
     else
     {
         ast = binexpr();

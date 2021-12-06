@@ -2,6 +2,12 @@ int32 x;
 
 int32 main()
 {
-    return 10;
-    x = function() == 1;
+    if (x == function())
+    {
+        return 10;
+    }
+    else
+    {
+        return 20;
+    }
 }

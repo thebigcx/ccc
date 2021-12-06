@@ -20,7 +20,8 @@ enum AST_TYPE
     A_IDENT,
     A_ASM,
     A_CALL,
-    A_RETURN
+    A_RETURN,
+    A_IFELSE
 };
 
 enum TYPENAME
@@ -86,6 +87,11 @@ struct ast
         {
             struct ast *val;
         } ret;
+
+        struct
+        {
+            struct ast *cond, *ifblock, *elseblock;
+        } ifelse;
     };
 };
 
