@@ -39,6 +39,16 @@ static void regfree(int r)
     reglist[r] = 0;
 }
 
+static const char *set_instructions[] =
+{
+    [OP_EQUAL] = "sete",
+    [OP_NEQUAL] = "setne",
+    [OP_GT] = "setg",
+    [OP_LT] = "setl",
+    [OP_GTE] = "setge",
+    [OP_LTE] = "setle"
+};
+
 // gen_* functions return the register
 
 static int gen_binop(struct ast *ast, FILE *file)
@@ -68,10 +78,15 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_DIV: break;
 
         case OP_EQUAL:
+        case OP_NEQUAL:
+        case OP_GT:
+        case OP_LT:
+        case OP_GTE:
+        case OP_LTE:
         {
             int r = regalloc();
             fprintf(file, "\tcmp %s, %s\n", regs64[r1], regs64[r2]);
-            fprintf(file, "\tsete %%al\n");
+            fprintf(file, "\t%s %%al\n", set_instructions[ast->binop.op]);
             fprintf(file, "\tmovzx %%al, %s\n", regs64[r]);
             
             regfree(r1);
@@ -159,6 +174,7 @@ static void gen_ifelse(struct ast *ast, FILE *file)
     
     if (elselbl != -1)
     {
+        fprintf(file, "\tjmp .L%d\n", endlbl);
         fprintf(file, ".L%d:\n", elselbl);
         gen_code(ast->ifelse.elseblock, file);
     }
@@ -181,6 +197,26 @@ static void gen_while(struct ast *ast, FILE *file)
 
     fprintf(file, "\tjmp .L%d\n", looplbl);
 
+    fprintf(file, ".L%d:\n", endlbl);
+}
+
+static void gen_for(struct ast *ast, FILE *file)
+{
+    int looplbl = label(), endlbl = label();
+
+    gen_code(ast->forloop.init, file);
+
+    fprintf(file, ".L%d:\n", looplbl);
+    int r = gen_code(ast->forloop.cond, file);
+    
+    fprintf(file, "\tmov $1, %%rax\n");
+    fprintf(file, "\tcmp %s, %%rax\n", regs64[r]);
+    fprintf(file, "\tjne .L%d\n", endlbl);
+
+    gen_code(ast->forloop.body, file);
+    gen_code(ast->forloop.update, file);
+
+    fprintf(file, "\tjmp .L%d\n", looplbl);
     fprintf(file, ".L%d:\n", endlbl);
 }
 
@@ -217,6 +253,9 @@ int gen_code(struct ast *ast, FILE *file)
             return NOREG;
         case A_WHILE:
             gen_while(ast, file);
+            return NOREG;
+        case A_FOR:
+            gen_for(ast, file);
             return NOREG;
     }
 

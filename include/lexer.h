@@ -10,6 +10,7 @@ enum TOKTYPE
     T_SLASH,
     T_INTLIT,
     T_SEMI,
+    T_COMMA,
 
     T_IDENT,
 

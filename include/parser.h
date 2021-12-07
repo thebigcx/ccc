@@ -7,7 +7,12 @@ enum OPERATOR
     OP_MUL,
     OP_DIV,
     OP_ASSIGN,
-    OP_EQUAL
+    OP_EQUAL,
+    OP_NEQUAL,
+    OP_GT,
+    OP_LT,
+    OP_GTE,
+    OP_LTE
 };
 
 enum AST_TYPE
@@ -22,7 +27,8 @@ enum AST_TYPE
     A_CALL,
     A_RETURN,
     A_IFELSE,
-    A_WHILE
+    A_WHILE,
+    A_FOR
 };
 
 enum TYPENAME
@@ -98,6 +104,11 @@ struct ast
         {
             struct ast *cond, *body;
         } whileloop;
+
+        struct
+        {
+            struct ast *init, *cond, *update, *body;
+        } forloop;
     };
 };
 

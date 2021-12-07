@@ -105,7 +105,18 @@ int tokenize(const char *str, struct token **toks)
             case ']': pushnv(T_RBRACK, toks, &i); str++; continue;
             case '{': pushnv(T_LBRACE, toks, &i); str++; continue;
             case '}': pushnv(T_RBRACE, toks, &i); str++; continue;
-        
+            case ',': pushnv(T_COMMA,  toks, &i); str++; continue;
+
+            case '!':
+                if (*(++str) == '=')
+                {
+                    pushnv(T_NEQ, toks, &i);
+                    str++;
+                }
+                else
+                    pushnv(T_NOT, toks, &i);
+                continue;
+
             case '=':
                 if (*(++str) == '=')
                 {
@@ -114,6 +125,25 @@ int tokenize(const char *str, struct token **toks)
                 }
                 else
                     pushnv(T_EQ, toks, &i);
+                continue;
+
+            case '>':
+                if (*(++str) == '=')
+                {
+                    pushnv(T_GTE, toks, &i);
+                    str++;
+                }
+                else
+                    pushnv(T_GT, toks, &i);
+                continue;
+            case '<':
+                if (*(++str) == '=')
+                {
+                    pushnv(T_LTE, toks, &i);
+                    str++;
+                }
+                else
+                    pushnv(T_LT, toks, &i);
                 continue;
         }
 

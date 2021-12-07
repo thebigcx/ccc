@@ -27,7 +27,7 @@ static struct token *curr()
 static int termin()
 {
     int t = curr()->type;
-    return t == T_SEMI || t == T_RPAREN;
+    return t == T_SEMI || t == T_RPAREN || t == T_COMMA;
 }
 
 static int expect(int t)
@@ -54,6 +54,11 @@ static int operator()
         case T_SLASH: op = OP_DIV;    break;
         case T_EQ:    op = OP_ASSIGN; break;
         case T_EQEQ:  op = OP_EQUAL;  break;
+        case T_NEQ:   op = OP_NEQUAL; break;
+        case T_GT:    op = OP_GT;     break;
+        case T_LT:    op = OP_LT;     break;
+        case T_GTE:   op = OP_GTE;    break;
+        case T_LTE:   op = OP_LTE;    break;
         default:
             break; // TODO: error
     }
@@ -189,7 +194,6 @@ static struct ast *decl()
         ast->vardef.name = strdup(name);
         ast->vardef.type = type; // TODO: assignent
 
-        expect(T_SEMI);
         return ast;
     }
 }
@@ -204,7 +208,6 @@ static struct ast *return_statement()
     if (curr()->type != T_SEMI)
         ast->ret.val = binexpr();
 
-    expect(T_SEMI);
     return ast;
 }
 
@@ -252,6 +255,32 @@ static struct ast *while_statement()
     return ast;
 }
 
+static struct ast *statement();
+
+static struct ast *for_statement()
+{
+    next();
+    expect(T_LPAREN);
+
+    struct ast *ast = calloc(1, sizeof(struct ast));
+    ast->type = A_FOR;
+
+    ast->forloop.init = statement();
+    expect(T_SEMI);
+
+    ast->forloop.cond = binexpr();
+    expect(T_SEMI);
+
+    ast->forloop.update = statement();
+    expect(T_RPAREN);
+
+    expect(T_LBRACE);
+    ast->forloop.body = block();
+    expect(T_RBRACE);
+
+    return ast;
+}
+
 static struct ast *statement()
 {
     struct ast *ast;
@@ -266,11 +295,10 @@ static struct ast *statement()
         ast = if_statement();
     else if (curr()->type == T_WHILE)
         ast = while_statement();
+    else if (curr()->type == T_FOR)
+        ast = for_statement();
     else
-    {
         ast = binexpr();
-        expect(T_SEMI);
-    }
     
     return ast;
 }
@@ -283,6 +311,10 @@ static struct ast *block()
     while (curr()->type != T_RBRACE && curr()->type != T_EOF)
     {
         struct ast *ast = statement();
+
+        if (ast->type == A_VARDEF || ast->type == A_BINOP || ast->type == A_RETURN)
+            expect(T_SEMI);
+
         block->block.statements = realloc(block->block.statements, ++block->block.cnt * sizeof(struct ast*));
         block->block.statements[block->block.cnt - 1] = ast;
     }
