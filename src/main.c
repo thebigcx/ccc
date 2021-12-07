@@ -76,7 +76,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    gen_code(&ast, out);
+    gen_ast(&ast, out);
     fclose(out);
 
     return 0;

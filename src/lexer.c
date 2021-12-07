@@ -22,7 +22,7 @@ static struct keyword keywords[] =
     { "for",    T_FOR    }
 };
 
-// Tests whether 'c' is a valid character in an indentifier - letters, numbers, or '_'
+// Tests whether 'c' is a valid character in an identifier - letters, numbers, or '_'
 static int isidentc(char c)
 {
     return isalnum(c) || c == '_';
@@ -53,7 +53,7 @@ static void pushi(unsigned long i, struct token **toks, size_t *len)
     push((struct token) { .type = T_INTLIT, .v.ival = i }, toks, len);
 }
 
-static int pushasm(const char *str, struct token **toks, size_t *len)
+static size_t pushasm(const char *str, struct token **toks, size_t *len)
 {
     const char *str1 = str;
 
@@ -85,6 +85,24 @@ static void push_keyword(const char *str, struct token **toks, size_t *len)
 static void push_ident(const char *str, struct token **toks, size_t *len)
 {
     push((struct token) { .type = T_IDENT, .v.sval = strdup(str) }, toks, len);
+}
+
+static size_t push_strlit(const char *str, struct token **toks, size_t *len)
+{
+    const char *str2 = str;
+
+    char buf[128];
+    char *bufptr = buf;
+    str++;
+
+    // TODO: escape characters
+    while (*str != '"') *bufptr++ = *str++;
+    *bufptr = 0;
+    str++;
+
+    push((struct token) { .type = T_STRLIT, .v.sval = strdup(buf) }, toks, len);
+
+    return str - str2;
 }
 
 int tokenize(const char *str, struct token **toks)
@@ -145,6 +163,10 @@ int tokenize(const char *str, struct token **toks)
                 }
                 else
                     pushnv(T_LT, toks, &i);
+                continue;
+
+            case '"':
+                str += push_strlit(str, toks, &i);
                 continue;
         }
 

@@ -31,7 +31,8 @@ enum AST_TYPE
     A_IFELSE,
     A_WHILE,
     A_FOR,
-    A_UNARY
+    A_UNARY,
+    A_STRLIT
 };
 
 enum TYPENAME
@@ -123,6 +124,11 @@ struct ast
         {
             struct ast *init, *cond, *update, *body;
         } forloop;
+
+        struct
+        {
+            char *str;
+        } strlit;
     };
 };
 

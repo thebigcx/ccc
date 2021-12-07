@@ -94,6 +94,12 @@ static struct ast *primary()
         ast->intlit.ival = curr()->v.ival;
         next();
     }
+    else if (curr()->type == T_STRLIT)
+    {
+        ast->type = A_STRLIT;
+        ast->strlit.str = strdup(curr()->v.sval);
+        next();
+    }
     else if (curr()->type == T_IDENT)
     {
         char *name = curr()->v.sval;

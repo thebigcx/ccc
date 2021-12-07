@@ -8,7 +8,7 @@ enum TOKTYPE
     T_MINUS,
     T_STAR,
     T_SLASH,
-    T_INTLIT,
+    T_INTLIT, T_STRLIT,
     T_SEMI,
     T_COMMA,
     T_AMP,
