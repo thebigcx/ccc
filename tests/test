@@ -2,12 +2,10 @@ int32 x;
 
 int32 main()
 {
-    if (x == function())
+    while (x == 0)
     {
-        return 10;
+        x = x + 1;
     }
-    else
-    {
-        return 20;
-    }
+
+    return 10;
 }

@@ -35,6 +35,7 @@ static int expect(int t)
     if (curr()->type != t)
     {
         printf("Expected '%d', got '%d'\n", t, curr()->type);
+        abort();
         return -1;
     }
 
@@ -233,6 +234,24 @@ static struct ast *if_statement()
     return ast;
 }
 
+static struct ast *while_statement()
+{
+    next();
+    expect(T_LPAREN);
+
+    struct ast *ast = calloc(1, sizeof(struct ast));
+    ast->type = A_WHILE;
+
+    ast->whileloop.cond = binexpr();
+    expect(T_RPAREN);
+
+    expect(T_LBRACE);
+    ast->whileloop.body = block();
+    expect(T_RBRACE);
+
+    return ast;
+}
+
 static struct ast *statement()
 {
     struct ast *ast;
@@ -245,6 +264,8 @@ static struct ast *statement()
         ast = return_statement();
     else if (curr()->type == T_IF)
         ast = if_statement();
+    else if (curr()->type == T_WHILE)
+        ast = while_statement();
     else
     {
         ast = binexpr();

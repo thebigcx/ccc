@@ -21,7 +21,8 @@ enum AST_TYPE
     A_ASM,
     A_CALL,
     A_RETURN,
-    A_IFELSE
+    A_IFELSE,
+    A_WHILE
 };
 
 enum TYPENAME
@@ -92,6 +93,11 @@ struct ast
         {
             struct ast *cond, *ifblock, *elseblock;
         } ifelse;
+
+        struct
+        {
+            struct ast *cond, *body;
+        } whileloop;
     };
 };
 

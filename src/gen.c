@@ -166,6 +166,24 @@ static void gen_ifelse(struct ast *ast, FILE *file)
     fprintf(file, ".L%d:\n", endlbl);
 }
 
+static void gen_while(struct ast *ast, FILE *file)
+{
+    int looplbl = label(), endlbl = label();
+
+    fprintf(file, ".L%d:\n", looplbl);
+    int r = gen_code(ast->ifelse.cond, file);
+    
+    fprintf(file, "\tmov $1, %%rax\n");
+    fprintf(file, "\tcmp %s, %%rax\n", regs64[r]);
+    fprintf(file, "\tjne .L%d\n", endlbl);
+
+    gen_code(ast->whileloop.body, file);
+
+    fprintf(file, "\tjmp .L%d\n", looplbl);
+
+    fprintf(file, ".L%d:\n", endlbl);
+}
+
 // Generate code for an AST node
 int gen_code(struct ast *ast, FILE *file)
 {
@@ -196,6 +214,9 @@ int gen_code(struct ast *ast, FILE *file)
             return NOREG;
         case A_IFELSE:
             gen_ifelse(ast, file);
+            return NOREG;
+        case A_WHILE:
+            gen_while(ast, file);
             return NOREG;
     }
 
