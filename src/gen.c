@@ -1,5 +1,6 @@
 #include <gen.h>
 #include <assert.h>
+#include <stdlib.h>
 
 static const char *regs8[]  = { "%r8b", "%r9b", "%r10b", "%r11b" };
 static const char *regs16[] = { "%r8w", "%r9w", "%r10w", "%r11w" };
@@ -30,6 +31,7 @@ static int regalloc()
     }
 
     printf("Out of registers\n");
+    abort();
     return NOREG;
 }
 
@@ -175,8 +177,20 @@ static void gen_inlineasm(struct ast *ast, FILE *file)
     fprintf(file, "%s", ast->inasm.code);
 }
 
+static const char *paramregs[6] =
+{
+    "%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"
+};
+
 static int gen_call(struct ast *ast, FILE *file)
 {
+    for (unsigned int i = 0; i < ast->call.paramcnt; i++)
+    {
+        int par = gen_code(ast->call.params[i], file);
+        fprintf(file, "\tmov %s, %s\n", regs64[par], paramregs[i]);
+        regfree(par);
+    }
+
     int r = regalloc();
     fprintf(file, "\tcall %s\n", ast->call.name);
     fprintf(file, "\tmov %%rax, %s\n", regs64[r]);
@@ -189,6 +203,7 @@ static void gen_return(struct ast *ast, FILE *file)
     {
         int r = gen_code(ast->ret.val, file);
         fprintf(file, "\tmov %s, %%rax\n", regs64[r]);
+        regfree(r);
     }
     
     fprintf(file, "\tret\n");
@@ -206,6 +221,8 @@ static void gen_ifelse(struct ast *ast, FILE *file)
     fprintf(file, "\tmov $1, %%rax\n");
     fprintf(file, "\tcmp %s, %%rax\n", regs64[r]);
     fprintf(file, "\tjne L%d\n", elselbl != -1 ? elselbl : endlbl);
+
+    regfree(r);
 
     gen_code(ast->ifelse.ifblock, file);
     
@@ -230,6 +247,8 @@ static void gen_while(struct ast *ast, FILE *file)
     fprintf(file, "\tcmp %s, %%rax\n", regs64[r]);
     fprintf(file, "\tjne L%d\n", endlbl);
 
+    regfree(r);
+
     gen_code(ast->whileloop.body, file);
 
     fprintf(file, "\tjmp L%d\n", looplbl);
@@ -250,6 +269,8 @@ static void gen_for(struct ast *ast, FILE *file)
     fprintf(file, "\tcmp %s, %%rax\n", regs64[r]);
     fprintf(file, "\tjne L%d\n", endlbl);
 
+    regfree(r);
+
     gen_code(ast->forloop.body, file);
     gen_code(ast->forloop.update, file);
 
@@ -262,8 +283,7 @@ static int gen_strlit(struct ast *ast, FILE *file)
     int r = regalloc();
     int l = add_string(ast->strlit.str, file);
 
-    fprintf(file, "\tmov $L%d, %s\n", l, regs64[r]);
-
+    fprintf(file, "\tleaq L%d(%%rip), %s\n", l, regs64[r]);
     return r;
 }
 

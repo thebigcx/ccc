@@ -72,8 +72,7 @@ struct ast
         
         struct
         {
-            struct type rettype; // Return type
-            // TODO: parameters
+            struct type rettype;
             struct ast *block;
             char *name;
         } funcdef;
@@ -103,6 +102,8 @@ struct ast
         struct
         {
             char *name;
+            struct ast **params;
+            unsigned int paramcnt;
         } call;
 
         struct

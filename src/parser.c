@@ -67,9 +67,11 @@ static int operator()
     return op;
 }
 
+static struct ast *binexpr();
+
 static struct ast *primary()
 {
-    struct ast *ast = malloc(sizeof(struct ast));
+    struct ast *ast = calloc(1, sizeof(struct ast));
 
     if (curr()->type == T_AMP)
     {
@@ -108,6 +110,11 @@ static struct ast *primary()
         if (curr()->type == T_LPAREN)
         {
             next();
+            while (curr()->type != T_RPAREN)
+            {
+                ast->call.params = realloc(ast->call.params, (ast->call.paramcnt + 1) * sizeof(struct ast*));
+                ast->call.params[ast->call.paramcnt++] = binexpr();
+            }
             expect(T_RPAREN);
 
             ast->type = A_CALL;
@@ -194,18 +201,16 @@ static struct ast *decl()
 
     if (curr()->type == T_LPAREN)
     {
-        // TODO: parameters
-        next();
-        expect(T_RPAREN);
-        expect(T_LBRACE);
-    
-        struct ast *ast = malloc(sizeof(struct ast));
+        struct ast *ast = calloc(1, sizeof(struct ast));
         ast->type = A_FUNCDEF;
 
         ast->funcdef.name    = strdup(name); 
         ast->funcdef.rettype = type;
+        
+        next();
+        expect(T_RPAREN);
+        expect(T_LBRACE);
         ast->funcdef.block   = block();
-
         expect(T_RBRACE);
 
         return ast;
@@ -336,7 +341,7 @@ static struct ast *block()
     {
         struct ast *ast = statement();
 
-        if (ast->type == A_VARDEF || ast->type == A_BINOP || ast->type == A_RETURN)
+        if (ast->type == A_VARDEF || ast->type == A_BINOP || ast->type == A_RETURN || ast->type == A_CALL)
             expect(T_SEMI);
 
         block->block.statements = realloc(block->block.statements, ++block->block.cnt * sizeof(struct ast*));
