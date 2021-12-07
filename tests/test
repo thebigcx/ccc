@@ -2,12 +2,9 @@ int32 x;
 
 int32 main()
 {
-    if (x)
-    {
-        x = x + 1;
-    }
-    else
-    {
-        x = x - 1;
-    }
+    int32 *y;
+    y = &x;
+
+    int32 z;
+    z = *y;    
 }

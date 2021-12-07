@@ -41,25 +41,28 @@ static void regfree(int r)
 
 static const char *set_instructions[] =
 {
-    [OP_EQUAL] = "sete",
+    [OP_EQUAL]  = "sete",
     [OP_NEQUAL] = "setne",
-    [OP_GT] = "setg",
-    [OP_LT] = "setl",
-    [OP_GTE] = "setge",
-    [OP_LTE] = "setle"
+    [OP_GT]     = "setg",
+    [OP_LT]     = "setl",
+    [OP_GTE]    = "setge",
+    [OP_LTE]    = "setle"
 };
 
 // gen_* functions return the register
+
+static int gen_assign(struct ast *ast, FILE *file)
+{
+    int r = gen_code(ast->binop.rhs, file);
+    fprintf(file, "\tmov %s, %s(%%rip)\n", regs64[r], ast->binop.lhs->ident.name);
+    return r;
+}
 
 static int gen_binop(struct ast *ast, FILE *file)
 {
     // TODO: A_ASSIGN instead
     if (ast->binop.op == OP_ASSIGN)
-    {
-        int r = gen_code(ast->binop.rhs, file);
-        fprintf(file, "\tmov %s, %s(%%rip)\n", regs64[r], ast->binop.lhs->ident.name);
-        return r;
-    }
+        return gen_assign(ast, file);
 
     int r1 = gen_code(ast->binop.lhs, file);
     int r2 = gen_code(ast->binop.rhs, file);
@@ -98,6 +101,29 @@ static int gen_binop(struct ast *ast, FILE *file)
 
     regfree(r1);
     return r2;
+}
+
+static int gen_unary(struct ast *ast, FILE *file)
+{
+    switch (ast->unary.op)
+    {
+        case OP_ADDROF:
+        {
+            int r = regalloc();
+            fprintf(file, "\tlea %s(%%rip), %s\n", ast->unary.val->ident.name, regs64[r]);
+            return r;
+        }
+        case OP_DEREF: // rvalue form only handled in gen_unary
+        {
+            int r1 = gen_code(ast->unary.val, file);
+            int r2 = regalloc();
+            fprintf(file, "\tmov (%s), %s\n", regs64[r1], regs64[r2]);
+            regfree(r1);
+            return r2;
+        }
+    }
+
+    return NOREG;
 }
 
 static int gen_intlit(struct ast *ast, FILE *file)
@@ -225,15 +251,14 @@ int gen_code(struct ast *ast, FILE *file)
 {
     switch (ast->type)
     {
-        case A_BINOP:
-            return gen_binop(ast, file);
-        case A_INTLIT:
-            return gen_intlit(ast, file);
+        case A_BINOP:  return gen_binop(ast, file);
+        case A_UNARY:  return gen_unary(ast, file);
+        case A_INTLIT: return gen_intlit(ast, file);
+        case A_CALL:   return gen_call(ast, file);
+        case A_IDENT:  return gen_ident(ast, file);
         case A_VARDEF:
             gen_vardef(ast, file);
             return NOREG;
-        case A_IDENT:
-            return gen_ident(ast, file);
         case A_FUNCDEF:
             gen_funcdef(ast, file);
             return NOREG;
@@ -243,8 +268,6 @@ int gen_code(struct ast *ast, FILE *file)
         case A_BLOCK:
             gen_block(ast, file);
             return NOREG;
-        case A_CALL:
-            return gen_call(ast, file);
         case A_RETURN:
             gen_return(ast, file);
             return NOREG;

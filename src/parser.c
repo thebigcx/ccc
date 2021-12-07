@@ -71,6 +71,23 @@ static struct ast *primary()
 {
     struct ast *ast = malloc(sizeof(struct ast));
 
+    if (curr()->type == T_AMP)
+    {
+        next();
+        ast->type      = A_UNARY;
+        ast->unary.op  = OP_ADDROF;
+        ast->unary.val = primary();
+        return ast;
+    }
+    else if (curr()->type == T_STAR)
+    {
+        next();
+        ast->type      = A_UNARY;
+        ast->unary.op  = OP_DEREF;
+        ast->unary.val = primary();
+        return ast;
+    }
+
     if (curr()->type == T_INTLIT)
     {
         ast->type = A_INTLIT;
@@ -130,26 +147,27 @@ static struct ast *inlineasm()
     return ast;
 }
 
-static int typename()
+static struct type parsetype()
 {
-    int type = -1;
+    int name = -1;
 
     switch (curr()->type)
     {
-        case T_INT8:    type = TYPE_INT8; break;
-        case T_INT16:   type = TYPE_INT16; break;
-        case T_INT32:   type = TYPE_INT32; break;
-        case T_INT64:   type = TYPE_INT64; break;
-        case T_UINT8:   type = TYPE_UINT8; break;
-        case T_UINT16:  type = TYPE_UINT16; break;
-        case T_UINT32:  type = TYPE_UINT32; break;
-        case T_UINT64:  type = TYPE_UINT64; break;
-        case T_FLOAT32: type = TYPE_FLOAT32; break;
-        case T_FLOAT64: type = TYPE_FLOAT64; break;
+        case T_INT8:    name = TYPE_INT8; break;
+        case T_INT16:   name = TYPE_INT16; break;
+        case T_INT32:   name = TYPE_INT32; break;
+        case T_INT64:   name = TYPE_INT64; break;
+        case T_UINT8:   name = TYPE_UINT8; break;
+        case T_UINT16:  name = TYPE_UINT16; break;
+        case T_UINT32:  name = TYPE_UINT32; break;
+        case T_UINT64:  name = TYPE_UINT64; break;
+        case T_FLOAT32: name = TYPE_FLOAT32; break;
+        case T_FLOAT64: name = TYPE_FLOAT64; break;
     }
 
-    next();
-    return type;
+    int ptr = 0;
+    while (next()->type == T_STAR) ptr++;
+    return (struct type) { .name = name, .ptr = ptr };
 }
 
 static int istype(int token)
@@ -163,7 +181,7 @@ static struct ast *block();
 
 static struct ast *decl()
 {
-    int type = typename();
+    struct type type = parsetype();
 
     const char *name = curr()->v.sval;
     next();

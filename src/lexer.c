@@ -106,6 +106,7 @@ int tokenize(const char *str, struct token **toks)
             case '{': pushnv(T_LBRACE, toks, &i); str++; continue;
             case '}': pushnv(T_RBRACE, toks, &i); str++; continue;
             case ',': pushnv(T_COMMA,  toks, &i); str++; continue;
+            case '&': pushnv(T_AMP,    toks, &i); str++; continue;
 
             case '!':
                 if (*(++str) == '=')

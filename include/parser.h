@@ -12,7 +12,9 @@ enum OPERATOR
     OP_GT,
     OP_LT,
     OP_GTE,
-    OP_LTE
+    OP_LTE,
+    OP_ADDROF,
+    OP_DEREF
 };
 
 enum AST_TYPE
@@ -28,7 +30,8 @@ enum AST_TYPE
     A_RETURN,
     A_IFELSE,
     A_WHILE,
-    A_FOR
+    A_FOR,
+    A_UNARY
 };
 
 enum TYPENAME
@@ -36,6 +39,11 @@ enum TYPENAME
     TYPE_INT8, TYPE_INT16, TYPE_INT32, TYPE_INT64,
     TYPE_UINT8, TYPE_UINT16, TYPE_UINT32, TYPE_UINT64,
     TYPE_FLOAT32, TYPE_FLOAT64
+};
+
+struct type
+{
+    int ptr, name;
 };
 
 struct ast
@@ -52,12 +60,18 @@ struct ast
 
         struct
         {
+            int op;
+            struct ast *val;
+        } unary;
+
+        struct
+        {
             unsigned long ival;
         } intlit;
         
         struct
         {
-            int rettype; // Return type
+            struct type rettype; // Return type
             // TODO: parameters
             struct ast *block;
             char *name;
@@ -65,7 +79,7 @@ struct ast
 
         struct // TODO: storage class
         {
-            int type;
+            struct type type;
             char *name;
         } vardef;
 

@@ -11,6 +11,7 @@ enum TOKTYPE
     T_INTLIT,
     T_SEMI,
     T_COMMA,
+    T_AMP,
 
     T_IDENT,
 
