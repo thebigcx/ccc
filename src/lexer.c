@@ -19,7 +19,9 @@ static struct keyword keywords[] =
     { "if",     T_IF     },
     { "else",   T_ELSE   },
     { "while",  T_WHILE  },
-    { "for",    T_FOR    }
+    { "for",    T_FOR    },
+    { "var",    T_VAR    },
+    { "fn",     T_FUNC   }
 };
 
 // Tests whether 'c' is a valid character in an identifier - letters, numbers, or '_'
@@ -125,6 +127,7 @@ int tokenize(const char *str, struct token **toks)
             case '}': pushnv(T_RBRACE, toks, &i); str++; continue;
             case ',': pushnv(T_COMMA,  toks, &i); str++; continue;
             case '&': pushnv(T_AMP,    toks, &i); str++; continue;
+            case ':': pushnv(T_COLON,  toks, &i); str++; continue;
 
             case '!':
                 if (*(++str) == '=')

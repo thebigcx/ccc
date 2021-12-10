@@ -1,6 +1,6 @@
-int32 x;
+var x: int32;
 
-int32 main()
+fn main(): int32
 {
     puts("Hello, world");
 }

@@ -12,6 +12,7 @@ enum TOKTYPE
     T_SEMI,
     T_COMMA,
     T_AMP,
+    T_COLON,
 
     T_IDENT,
 
@@ -25,7 +26,7 @@ enum TOKTYPE
 
     T_ASM,
 
-    T_RETURN, T_WHILE, T_IF, T_ELSE, T_FOR
+    T_RETURN, T_WHILE, T_IF, T_ELSE, T_FOR, T_FUNC, T_VAR
 };
 
 // Type from 'enum TOKTYPE' and string or integer value

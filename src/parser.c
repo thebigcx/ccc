@@ -192,7 +192,51 @@ static int istype(int token)
 
 static struct ast *block();
 
-static struct ast *decl()
+static struct ast *funcdecl()
+{
+    expect(T_FUNC);
+    const char *name = curr()->v.sval;
+    
+    next();
+    expect(T_LPAREN);
+    expect(T_RPAREN);
+    
+    expect(T_COLON);
+    struct type type = parsetype();
+
+    struct ast *ast = calloc(1, sizeof(struct ast));
+    ast->type = A_FUNCDEF;
+
+    ast->funcdef.name    = strdup(name); 
+    ast->funcdef.rettype = type;
+
+    expect(T_LBRACE);
+    ast->funcdef.block   = block();
+    expect(T_RBRACE);
+
+    return ast;
+}
+
+static struct ast *vardecl()
+{
+    expect(T_VAR);
+    const char *name = curr()->v.sval;
+
+    next();
+    expect(T_COLON);
+
+    struct type type = parsetype();
+
+    struct ast *ast = malloc(sizeof(struct ast));
+    ast->type = A_VARDEF;
+
+    ast->vardef.name = strdup(name);
+    ast->vardef.type = type; // TODO: assignent
+
+    return ast;
+}
+
+/*static struct ast *decl()
 {
     struct type type = parsetype();
 
@@ -225,7 +269,7 @@ static struct ast *decl()
 
         return ast;
     }
-}
+}*/
 
 static struct ast *return_statement()
 {
@@ -316,8 +360,12 @@ static struct ast *statement()
 
     if (curr()->type == T_ASM)
         ast = inlineasm();
-    else if (istype(curr()->type))
-        ast = decl();
+    //else if (istype(curr()->type))
+        //ast = decl();
+    else if (curr()->type == T_FUNC)
+        ast = funcdecl();
+    else if (curr()->type == T_VAR)
+        ast = vardecl();
     else if (curr()->type == T_RETURN)
         ast = return_statement();
     else if (curr()->type == T_IF)
