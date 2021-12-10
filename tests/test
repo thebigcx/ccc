@@ -1,6 +1,6 @@
 var x: int32;
 
-fn main(): int32
+fn main(argc: int32, argv: int8*): int32
 {
     puts("Hello, world");
 }

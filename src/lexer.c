@@ -14,14 +14,24 @@ struct keyword
 
 static struct keyword keywords[] =
 {
-    { "int32",  T_INT32  },
-    { "return", T_RETURN },
-    { "if",     T_IF     },
-    { "else",   T_ELSE   },
-    { "while",  T_WHILE  },
-    { "for",    T_FOR    },
-    { "var",    T_VAR    },
-    { "fn",     T_FUNC   }
+    { "int8",    T_INT8    },
+    { "int16",   T_INT16   },
+    { "int32",   T_INT32   },
+    { "int64",   T_INT64   },
+    { "uint8",   T_UINT8   },
+    { "uint16",  T_UINT16  },
+    { "uint32",  T_UINT32  },
+    { "uint64",  T_UINT64  },
+    { "float32", T_FLOAT32 },
+    { "float64", T_FLOAT64 },
+    { "bool",    T_UINT8   },
+    { "return",  T_RETURN  },
+    { "if",      T_IF      },
+    { "else",    T_ELSE    },
+    { "while",   T_WHILE   },
+    { "for",     T_FOR     },
+    { "var",     T_VAR     },
+    { "fn",      T_FUNC    }
 };
 
 // Tests whether 'c' is a valid character in an identifier - letters, numbers, or '_'

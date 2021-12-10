@@ -162,25 +162,33 @@ static struct ast *inlineasm()
 
 static struct type parsetype()
 {
-    int name = -1;
+    struct type t;
 
     switch (curr()->type)
     {
-        case T_INT8:    name = TYPE_INT8; break;
-        case T_INT16:   name = TYPE_INT16; break;
-        case T_INT32:   name = TYPE_INT32; break;
-        case T_INT64:   name = TYPE_INT64; break;
-        case T_UINT8:   name = TYPE_UINT8; break;
-        case T_UINT16:  name = TYPE_UINT16; break;
-        case T_UINT32:  name = TYPE_UINT32; break;
-        case T_UINT64:  name = TYPE_UINT64; break;
-        case T_FLOAT32: name = TYPE_FLOAT32; break;
-        case T_FLOAT64: name = TYPE_FLOAT64; break;
+        case T_INT8:    t.name = TYPE_INT8; break;
+        case T_INT16:   t.name = TYPE_INT16; break;
+        case T_INT32:   t.name = TYPE_INT32; break;
+        case T_INT64:   t.name = TYPE_INT64; break;
+        case T_UINT8:   t.name = TYPE_UINT8; break;
+        case T_UINT16:  t.name = TYPE_UINT16; break;
+        case T_UINT32:  t.name = TYPE_UINT32; break;
+        case T_UINT64:  t.name = TYPE_UINT64; break;
+        case T_FLOAT32: t.name = TYPE_FLOAT32; break;
+        case T_FLOAT64: t.name = TYPE_FLOAT64; break;
     }
 
-    int ptr = 0;
-    while (next()->type == T_STAR) ptr++;
-    return (struct type) { .name = name, .ptr = ptr };
+    while (next()->type == T_STAR) t.ptr++;
+
+    if (curr()->type == T_LBRACK)
+    {
+        next();
+        t.arrlen = curr()->v.ival;
+        expect(T_INTLIT);
+        expect(T_RBRACK);
+    }
+
+    return t;
 }
 
 static int istype(int token)
@@ -191,24 +199,28 @@ static int istype(int token)
 }
 
 static struct ast *block();
+static struct ast *vardecl();
 
 static struct ast *funcdecl()
 {
-    expect(T_FUNC);
-    const char *name = curr()->v.sval;
-    
-    next();
-    expect(T_LPAREN);
-    expect(T_RPAREN);
-    
-    expect(T_COLON);
-    struct type type = parsetype();
-
     struct ast *ast = calloc(1, sizeof(struct ast));
     ast->type = A_FUNCDEF;
 
-    ast->funcdef.name    = strdup(name); 
-    ast->funcdef.rettype = type;
+    ast->funcdef.name = strdup(curr()->v.sval);
+    
+    next();
+    expect(T_LPAREN);
+
+    while (curr()->type != T_RPAREN)
+    {
+        ast->funcdef.params[ast->funcdef.paramcnt++] = vardecl();
+        if (curr()->type != T_RPAREN) expect(T_COMMA);
+    }
+    
+    expect(T_RPAREN);
+    
+    expect(T_COLON);
+    ast->funcdef.rettype = parsetype();
 
     expect(T_LBRACE);
     ast->funcdef.block   = block();
@@ -219,7 +231,6 @@ static struct ast *funcdecl()
 
 static struct ast *vardecl()
 {
-    expect(T_VAR);
     const char *name = curr()->v.sval;
 
     next();
@@ -235,41 +246,6 @@ static struct ast *vardecl()
 
     return ast;
 }
-
-/*static struct ast *decl()
-{
-    struct type type = parsetype();
-
-    const char *name = curr()->v.sval;
-    next();
-
-    if (curr()->type == T_LPAREN)
-    {
-        struct ast *ast = calloc(1, sizeof(struct ast));
-        ast->type = A_FUNCDEF;
-
-        ast->funcdef.name    = strdup(name); 
-        ast->funcdef.rettype = type;
-        
-        next();
-        expect(T_RPAREN);
-        expect(T_LBRACE);
-        ast->funcdef.block   = block();
-        expect(T_RBRACE);
-
-        return ast;
-    }
-    else
-    {
-        struct ast *ast = malloc(sizeof(struct ast));
-        ast->type = A_VARDEF;
-
-        ast->vardef.name = strdup(name);
-        ast->vardef.type = type; // TODO: assignent
-
-        return ast;
-    }
-}*/
 
 static struct ast *return_statement()
 {
@@ -360,12 +336,16 @@ static struct ast *statement()
 
     if (curr()->type == T_ASM)
         ast = inlineasm();
-    //else if (istype(curr()->type))
-        //ast = decl();
     else if (curr()->type == T_FUNC)
+    {
+        next();
         ast = funcdecl();
+    }
     else if (curr()->type == T_VAR)
+    {
+        next();
         ast = vardecl();
+    }
     else if (curr()->type == T_RETURN)
         ast = return_statement();
     else if (curr()->type == T_IF)

@@ -44,7 +44,7 @@ enum TYPENAME
 
 struct type
 {
-    int ptr, name;
+    int ptr, name, arrlen;
 };
 
 struct ast
@@ -73,6 +73,8 @@ struct ast
         struct
         {
             struct type rettype;
+            struct ast *params[6];
+            unsigned int paramcnt;
             struct ast *block;
             char *name;
         } funcdef;
