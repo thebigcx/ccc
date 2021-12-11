@@ -6,6 +6,13 @@
 #include <util.h>
 #include <stdio.h>
 
+struct lexer
+{
+    int currline, currcol;
+};
+
+static struct lexer s_lexer;
+
 struct keyword
 {
     const char *str;
@@ -50,6 +57,7 @@ static int iskeyword(const char *str)
 
 static void push(struct token t, struct token **toks, size_t *len)
 {
+    t.line = s_lexer.currline; t.col = s_lexer.currcol;
     *toks = realloc(*toks, (*len + 1) * sizeof(struct token));
     (*toks)[(*len)++] = t;
 }
@@ -119,6 +127,9 @@ static size_t push_strlit(const char *str, struct token **toks, size_t *len)
 
 int tokenize(const char *str, struct token **toks)
 {
+    s_lexer.currline = 1;
+    s_lexer.currcol = 0;
+
     size_t i = 0;
     while (*str)
     {
@@ -184,7 +195,15 @@ int tokenize(const char *str, struct token **toks)
         }
 
         if (isspace(*str))
+        {
+            switch (*str)
+            {
+                case ' ':  s_lexer.currcol++; break;
+                case '\t': s_lexer.currcol += 4; break;
+                case '\n': s_lexer.currline++; break;
+            }
             str++;
+        }
         else if (isdigit(*str))
             pushi(strtol(str, (char**)&str, 10), toks, &i);
         else if (isalpha(*str) || *str == '_')

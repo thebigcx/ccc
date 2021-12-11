@@ -38,6 +38,7 @@ struct token
         unsigned long ival;
         char *sval;
     } v;
+    int line, col;
 };
 
 int tokenize(const char *str, struct token **toks);

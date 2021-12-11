@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 struct parser
 {
@@ -23,6 +24,18 @@ static struct token *curr()
     return &s_parser.toks[s_parser.i];
 }
 
+static void error(const char *msg, ...)
+{
+    printf("\033[1;31merror: \033[37mat line %d: \033[22m", curr()->line);
+
+    va_list list;
+    va_start(list, msg);
+    vprintf(msg, list);
+    va_end(list);
+
+    exit(-1);
+}
+
 // Terminator
 static int termin()
 {
@@ -30,12 +43,59 @@ static int termin()
     return t == T_SEMI || t == T_RPAREN || t == T_COMMA;
 }
 
+static const char *tokstrs[] =
+{
+    [T_EOF] = "EOF",
+    [T_PLUS] = "+",
+    [T_MINUS] = "-",
+    [T_STAR] = "*",
+    [T_SLASH] = "/",
+    [T_INTLIT] = "int literal",
+    [T_STRLIT] = "string literal",
+    [T_SEMI] = ";",
+    [T_COMMA] = ",",
+    [T_AMP] = "&",
+    [T_COLON] = ":",
+    [T_IDENT] = "identifer",
+    [T_EQ] = "=",
+    [T_EQEQ] = "==",
+    [T_NEQ] = "!=",
+    [T_GT] = ">",
+    [T_LT] = "<",
+    [T_GTE] = ">=",
+    [T_LTE] = "<=",
+    [T_NOT] = "!",
+    [T_INT8] = "int8",
+    [T_INT16] = "int16",
+    [T_INT32] = "int32",
+    [T_INT64] = "int64",
+    [T_UINT8] = "uint8",
+    [T_UINT16] = "uint16",
+    [T_UINT32] = "uint32",
+    [T_UINT64] = "uint64",
+    [T_FLOAT32] = "float32",
+    [T_FLOAT64] = "float64",
+    [T_LPAREN] = "(",
+    [T_RPAREN] = ")",
+    [T_LBRACK] = "[",
+    [T_RBRACK] = "]",
+    [T_LBRACE] = "{",
+    [T_RBRACE] = "}",
+    [T_ASM] = "asm",
+    [T_RETURN] = "return",
+    [T_WHILE] = "while",
+    [T_IF] = "if",
+    [T_ELSE] = "else",
+    [T_FOR] = "for",
+    [T_FUNC] = "fn",
+    [T_VAR] = "var"
+};
+
 static int expect(int t)
 {
     if (curr()->type != t)
     {
-        printf("Expected '%d', got '%d'\n", t, curr()->type);
-        abort();
+        error("Expected '%s', got '%s'\n", tokstrs[t], tokstrs[curr()->type]);
         return -1;
     }
 
@@ -121,6 +181,10 @@ static struct ast *primary()
             ast->ident.name = strdup(name);
         }
     }
+    else
+    {
+        error("Expected primary expression, got '%s'\n", tokstrs[curr()->type]);
+    }
 
     return ast;
 }
@@ -152,7 +216,12 @@ static struct ast *binexpr(int ptp)
 
     if (termin()) return lhs;
 
-    int op = operator(curr()->type);
+    int op;
+    if ((op = operator(curr()->type)) == -1)
+    {
+        error("Expected operator, got '%s'\n", tokstrs[curr()->type]);
+    }
+
     while (opprec[op] > ptp || (rightassoc(op) && opprec[op] == ptp))
     {
         next();
@@ -167,7 +236,10 @@ static struct ast *binexpr(int ptp)
         lhs = expr;
         if (termin()) return lhs;
 
-        op = operator(curr()->type);
+        if ((op = operator(curr()->type)) == -1)
+        {
+            error("Expected operator, got '%s'\n", tokstrs[curr()->type]);
+        }
     }
 
     return lhs;
@@ -200,6 +272,8 @@ static struct type parsetype()
         case T_UINT64:  t.name = TYPE_UINT64; break;
         case T_FLOAT32: t.name = TYPE_FLOAT32; break;
         case T_FLOAT64: t.name = TYPE_FLOAT64; break;
+        default:
+            error("Expected typename, got '%s'\n", tokstrs[curr()->type]);
     }
 
     while (next()->type == T_STAR) t.ptr++;
@@ -232,7 +306,7 @@ static struct ast *funcdecl()
 
     ast->funcdef.name = strdup(curr()->v.sval);
     
-    next();
+    expect(T_IDENT);
     expect(T_LPAREN);
 
     while (curr()->type != T_RPAREN)
@@ -260,9 +334,10 @@ static struct ast *funcdecl()
 static struct ast *vardecl()
 {
     const char *name = curr()->v.sval;
+    expect(T_IDENT);
 
     struct type type = (struct type) { .name = TYPE_VOID };
-    if (next()->type == T_COLON)
+    if (curr()->type == T_COLON)
     {
         next();
         type = parsetype();
