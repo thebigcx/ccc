@@ -75,7 +75,6 @@ static int gen_assign(struct ast *ast, FILE *file)
 
 static int gen_binop(struct ast *ast, FILE *file)
 {
-    // TODO: A_ASSIGN instead
     if (ast->binop.op == OP_ASSIGN)
         return gen_assign(ast, file);
 

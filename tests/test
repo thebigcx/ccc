@@ -2,5 +2,5 @@ var x: int32;
 
 fn main(argc: int32, argv: int8**)
 {
-    puts("Hello, world");
+    x = x + 2 * x - 1;
 }
