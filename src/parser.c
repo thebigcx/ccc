@@ -218,9 +218,13 @@ static struct ast *funcdecl()
     }
     
     expect(T_RPAREN);
-    
-    expect(T_COLON);
-    ast->funcdef.rettype = parsetype();
+
+    if (curr()->type == T_COLON)
+    {
+        next();
+        ast->funcdef.rettype = parsetype();
+    }
+    else ast->funcdef.rettype = (struct type) { .name = TYPE_VOID };
 
     expect(T_LBRACE);
     ast->funcdef.block   = block();
@@ -233,11 +237,13 @@ static struct ast *vardecl()
 {
     const char *name = curr()->v.sval;
 
-    next();
-    expect(T_COLON);
-
-    struct type type = parsetype();
-
+    struct type type = (struct type) { .name = TYPE_VOID };
+    if (next()->type == T_COLON)
+    {
+        next();
+        type = parsetype();
+    }
+    
     struct ast *ast = malloc(sizeof(struct ast));
     ast->type = A_VARDEF;
 
