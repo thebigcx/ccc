@@ -14,7 +14,7 @@ enum OPERATOR
     OP_GTE,
     OP_LTE,
     OP_ADDROF,
-    OP_DEREF
+    OP_DEREF,
 };
 
 enum AST_TYPE
@@ -32,7 +32,8 @@ enum AST_TYPE
     A_WHILE,
     A_FOR,
     A_UNARY,
-    A_STRLIT
+    A_STRLIT,
+    A_SIZEOF
 };
 
 enum TYPENAME
@@ -132,6 +133,11 @@ struct ast
         {
             char *str;
         } strlit;
+
+        struct
+        {
+            struct type t;
+        } sizeofop;
     };
 };
 

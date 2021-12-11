@@ -64,6 +64,32 @@ static int add_string(const char *str, FILE *file)
     return l;
 }
 
+static size_t asm_sizeof(struct type type)
+{
+    if (type.ptr) return 8;
+
+    int prim;
+    switch (type.name)
+    {
+        case TYPE_INT8:
+        case TYPE_UINT8:
+            prim = 1; break;
+        case TYPE_INT16:
+        case TYPE_UINT16:
+            prim = 2; break;
+        case TYPE_INT32:
+        case TYPE_UINT32:
+        case TYPE_FLOAT32:
+            prim = 4; break;
+        case TYPE_INT64:
+        case TYPE_UINT64:
+        case TYPE_FLOAT64:
+            prim = 8; break;
+    }
+
+    return prim * (type.arrlen ? type.arrlen : 1);
+}
+
 // gen_* functions return the register
 
 static int gen_binop(struct ast *ast, FILE *file)
@@ -152,7 +178,7 @@ static int gen_intlit(struct ast *ast, FILE *file)
 
 static void gen_vardef(struct ast *ast, FILE *file)
 {
-    fprintf(file, "\t.comm %s, %d\n", ast->vardef.name, 4);
+    fprintf(file, "\t.comm %s, %lu\n", ast->vardef.name, asm_sizeof(ast->vardef.type));
 }
 
 static int gen_ident(struct ast *ast, FILE *file)
@@ -291,6 +317,13 @@ static int gen_strlit(struct ast *ast, FILE *file)
     return r;
 }
 
+static int gen_sizeof(struct ast *ast, FILE *file)
+{
+    int r = regalloc();
+    fprintf(file, "\tmov\t$%lu, %s\n", asm_sizeof(ast->sizeofop.t), regs64[r]);
+    return r;
+}
+
 // Generate code for an AST node
 int gen_code(struct ast *ast, FILE *file)
 {
@@ -302,6 +335,7 @@ int gen_code(struct ast *ast, FILE *file)
         case A_CALL:   return gen_call(ast, file);
         case A_IDENT:  return gen_ident(ast, file);
         case A_STRLIT: return gen_strlit(ast, file);
+        case A_SIZEOF: return gen_sizeof(ast, file);
         case A_VARDEF:
             gen_vardef(ast, file);
             return NOREG;

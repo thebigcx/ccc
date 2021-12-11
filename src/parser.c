@@ -88,7 +88,8 @@ static const char *tokstrs[] =
     [T_ELSE] = "else",
     [T_FOR] = "for",
     [T_FUNC] = "fn",
-    [T_VAR] = "var"
+    [T_VAR] = "var",
+    [T_SIZEOF] = "sizeof"
 };
 
 static int expect(int t)
@@ -107,22 +108,63 @@ static int operator(int tok)
 {
     switch (tok)
     {
-        case T_PLUS:  return OP_PLUS;
-        case T_MINUS: return OP_MINUS;
-        case T_STAR:  return OP_MUL;
-        case T_SLASH: return OP_DIV;
-        case T_EQ:    return OP_ASSIGN;
-        case T_EQEQ:  return OP_EQUAL;
-        case T_NEQ:   return OP_NEQUAL;
-        case T_GT:    return OP_GT;
-        case T_LT:    return OP_LT;
-        case T_GTE:   return OP_GTE;
-        case T_LTE:   return OP_LTE;
+        case T_PLUS:   return OP_PLUS;
+        case T_MINUS:  return OP_MINUS;
+        case T_STAR:   return OP_MUL;
+        case T_SLASH:  return OP_DIV;
+        case T_EQ:     return OP_ASSIGN;
+        case T_EQEQ:   return OP_EQUAL;
+        case T_NEQ:    return OP_NEQUAL;
+        case T_GT:     return OP_GT;
+        case T_LT:     return OP_LT;
+        case T_GTE:    return OP_GTE;
+        case T_LTE:    return OP_LTE;
     }
     return -1;
 }
 
+static struct type parsetype()
+{
+    struct type t;
+
+    switch (curr()->type)
+    {
+        case T_INT8:    t.name = TYPE_INT8; break;
+        case T_INT16:   t.name = TYPE_INT16; break;
+        case T_INT32:   t.name = TYPE_INT32; break;
+        case T_INT64:   t.name = TYPE_INT64; break;
+        case T_UINT8:   t.name = TYPE_UINT8; break;
+        case T_UINT16:  t.name = TYPE_UINT16; break;
+        case T_UINT32:  t.name = TYPE_UINT32; break;
+        case T_UINT64:  t.name = TYPE_UINT64; break;
+        case T_FLOAT32: t.name = TYPE_FLOAT32; break;
+        case T_FLOAT64: t.name = TYPE_FLOAT64; break;
+        default:
+            error("Expected typename, got '%s'\n", tokstrs[curr()->type]);
+    }
+
+    while (next()->type == T_STAR) t.ptr++;
+
+    if (curr()->type == T_LBRACK)
+    {
+        next();
+        t.arrlen = curr()->v.ival;
+        expect(T_INTLIT);
+        expect(T_RBRACK);
+    }
+
+    return t;
+}
+
 static struct ast *binexpr();
+
+static struct ast *parenexpr()
+{
+    next();
+    struct ast *ast = binexpr(0);
+    expect(T_RPAREN);
+    return ast;
+}
 
 static struct ast *primary()
 {
@@ -144,8 +186,14 @@ static struct ast *primary()
         ast->unary.val = primary();
         return ast;
     }
-
-    if (curr()->type == T_INTLIT)
+    else if (curr()->type == T_SIZEOF)
+    {
+        next();
+        ast->type       = A_SIZEOF;
+        ast->sizeofop.t = parsetype();
+        return ast;
+    }
+    else if (curr()->type == T_INTLIT)
     {
         ast->type = A_INTLIT;
         ast->intlit.ival = curr()->v.ival;
@@ -180,6 +228,10 @@ static struct ast *primary()
             ast->type = A_IDENT;
             ast->ident.name = strdup(name);
         }
+    }
+    else if (curr()->type == T_LPAREN)
+    {
+        return parenexpr();
     }
     else
     {
@@ -257,39 +309,6 @@ static struct ast *inlineasm()
 
     next();
     return ast;
-}
-
-static struct type parsetype()
-{
-    struct type t;
-
-    switch (curr()->type)
-    {
-        case T_INT8:    t.name = TYPE_INT8; break;
-        case T_INT16:   t.name = TYPE_INT16; break;
-        case T_INT32:   t.name = TYPE_INT32; break;
-        case T_INT64:   t.name = TYPE_INT64; break;
-        case T_UINT8:   t.name = TYPE_UINT8; break;
-        case T_UINT16:  t.name = TYPE_UINT16; break;
-        case T_UINT32:  t.name = TYPE_UINT32; break;
-        case T_UINT64:  t.name = TYPE_UINT64; break;
-        case T_FLOAT32: t.name = TYPE_FLOAT32; break;
-        case T_FLOAT64: t.name = TYPE_FLOAT64; break;
-        default:
-            error("Expected typename, got '%s'\n", tokstrs[curr()->type]);
-    }
-
-    while (next()->type == T_STAR) t.ptr++;
-
-    if (curr()->type == T_LBRACK)
-    {
-        next();
-        t.arrlen = curr()->v.ival;
-        expect(T_INTLIT);
-        expect(T_RBRACK);
-    }
-
-    return t;
 }
 
 static int istype(int token)

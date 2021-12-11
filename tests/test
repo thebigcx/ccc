@@ -1,6 +1,8 @@
-var x: int32;
+var x: int32*;
 
 fn main(argc: int32, argv: int8**)
 {
-    *x = 1 + 2;
+    var size: uint64;
+    size = sizeof int32;
+    *(x + 1) = 2;
 }
