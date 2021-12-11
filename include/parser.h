@@ -49,7 +49,7 @@ struct type
 
 struct ast
 {
-    int type;
+    int type, lvalue; // TODO: I don't like this 'lvalue' nonsense for determining if a dereference is a load or store - come up with a better way
 
     union
     {

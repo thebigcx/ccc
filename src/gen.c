@@ -66,18 +66,8 @@ static int add_string(const char *str, FILE *file)
 
 // gen_* functions return the register
 
-static int gen_assign(struct ast *ast, FILE *file)
-{
-    int r = gen_code(ast->binop.rhs, file);
-    fprintf(file, "\tmov\t%s, %s(%%rip)\n", regs64[r], ast->binop.lhs->ident.name);
-    return r;
-}
-
 static int gen_binop(struct ast *ast, FILE *file)
 {
-    if (ast->binop.op == OP_ASSIGN)
-        return gen_assign(ast, file);
-
     int r1 = gen_code(ast->binop.lhs, file);
     int r2 = gen_code(ast->binop.rhs, file);
 
@@ -110,7 +100,15 @@ static int gen_binop(struct ast *ast, FILE *file)
             regfree(r2);
             return r;
         }
-
+        case OP_ASSIGN:
+        {
+            if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
+                fprintf(file, "\tmov\t%s, (%s)\n", regs64[r2], regs64[r1]);
+            else
+                fprintf(file, "\tmov\t%s, %s(%%rip)\n", regs64[r2], ast->binop.lhs->ident.name);
+            
+            break;
+        }
     }
 
     regfree(r1);
@@ -127,13 +125,18 @@ static int gen_unary(struct ast *ast, FILE *file)
             fprintf(file, "\tlea\t%s(%%rip), %s\n", ast->unary.val->ident.name, regs64[r]);
             return r;
         }
-        case OP_DEREF: // rvalue form only handled in gen_unary
+        case OP_DEREF:
         {
             int r1 = gen_code(ast->unary.val, file);
-            int r2 = regalloc();
-            fprintf(file, "\tmov\t(%s), %s\n", regs64[r1], regs64[r2]);
-            regfree(r1);
-            return r2;
+            if (ast->lvalue)
+                return r1;
+            else
+            {
+                int r2 = regalloc();
+                fprintf(file, "\tmov\t(%s), %s\n", regs64[r1], regs64[r2]);
+                regfree(r1);
+                return r2;
+            }
         }
     }
 

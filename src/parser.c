@@ -233,6 +233,9 @@ static struct ast *binexpr(int ptp)
         expr->binop.rhs = rhs;
         expr->binop.op  = op;
 
+        lhs->lvalue = 1;
+        rhs->lvalue = 0;
+
         lhs = expr;
         if (termin()) return lhs;
 
