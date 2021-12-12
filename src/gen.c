@@ -107,7 +107,7 @@ static int gen_binop(struct ast *ast, FILE *file)
         }
         case OP_ASSIGN:
         {
-            if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
+            if ((ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF) || ast->binop.lhs->type == A_ARRACC)
                 fprintf(file, "\tmov\t%s, (%s)\n", regs64[r2], regs64[r1]);
             else
             {
@@ -327,6 +327,26 @@ static int gen_sizeof(struct ast *ast, FILE *file)
     return r;
 }
 
+static int gen_arracc(struct ast *ast, FILE *file)
+{
+    int r1 = gen_code(ast->arracc.arr, file);
+    int r2 = gen_code(ast->arracc.off, file);
+
+    fprintf(file, "\tadd\t%s, %s\n", regs64[r2], regs64[r1]);
+
+    regfree(r2);
+    
+    if (!ast->lvalue)
+    {
+        int r3 = regalloc();
+        fprintf(file, "\tmov\t(%s), %s\n", regs64[r1], regs64[r3]);
+        regfree(r1);
+        return r3;
+    }
+
+    return r1;
+}
+
 // Generate code for an AST node
 int gen_code(struct ast *ast, FILE *file)
 {
@@ -339,6 +359,7 @@ int gen_code(struct ast *ast, FILE *file)
         case A_IDENT:  return gen_ident(ast, file);
         case A_STRLIT: return gen_strlit(ast, file);
         case A_SIZEOF: return gen_sizeof(ast, file);
+        case A_ARRACC: return gen_arracc(ast, file);
         case A_FUNCDEF:
             gen_funcdef(ast, file);
             return NOREG;

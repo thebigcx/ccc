@@ -4,7 +4,9 @@ fn puts(str: int8*);
 
 fn main(argc: int32, argv: int8**)
 {
-    var size: uint64;
-    size = sizeof int32;
-    puts("Hello, world!");
+    var arr: int32[4];
+    arr[2] = 10;
+
+    var x: int32;
+    x = arr[2];
 }

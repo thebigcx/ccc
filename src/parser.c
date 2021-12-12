@@ -42,7 +42,7 @@ static void error(const char *msg, ...)
 static int termin()
 {
     int t = curr()->type;
-    return t == T_SEMI || t == T_RPAREN || t == T_COMMA;
+    return t == T_SEMI || t == T_RPAREN || t == T_COMMA || t == T_RBRACK;
 }
 
 static const char *tokstrs[] =
@@ -127,7 +127,7 @@ static int operator(int tok)
 
 static struct type parsetype()
 {
-    struct type t;
+    struct type t = { 0 };
 
     switch (curr()->type)
     {
@@ -236,11 +236,27 @@ static struct ast *primary()
     }
     else if (curr()->type == T_LPAREN)
     {
-        return parenexpr();
+        free(ast);
+        ast = parenexpr();
     }
     else
     {
         error("Expected primary expression, got '%s'\n", tokstrs[curr()->type]);
+    }
+
+    if (curr()->type == T_LBRACK)
+    {
+        // TODO: this could be better written as an array access's explicit form:
+        // arr[5] is equivalent to *(&arr + 5)
+        next();
+
+        struct ast *arr = calloc(1, sizeof(struct ast));
+        arr->type       = A_ARRACC;
+        arr->arracc.arr = ast;
+        arr->arracc.off = binexpr(0);
+
+        expect(T_RBRACK);
+        return arr;
     }
 
     return ast;
@@ -376,7 +392,7 @@ static struct ast *vardecl()
     const char *name = curr()->v.sval;
     expect(T_IDENT);
 
-    struct type type = (struct type) { .name = TYPE_VOID };
+    struct type type = (struct type) { .name = TYPE_VOID, .arrlen = 0, .ptr = 0 };
     if (curr()->type == T_COLON)
     {
         next();
