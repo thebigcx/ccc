@@ -1,6 +1,5 @@
 #include <parser.h>
 #include <lexer.h>
-#include <sym.h>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -12,6 +11,7 @@ struct parser
 {
     struct token *toks;
     size_t i;
+    struct symtable *currscope;
 };
 
 static struct parser s_parser;
@@ -211,7 +211,7 @@ static struct ast *primary()
     {
         char *name = curr()->v.sval;
 
-        if (!sym_lookup(name))
+        if (!sym_lookup(s_parser.currscope, name))
             error("Use of undeclared symbol '%s'\n", name);
 
         next();
@@ -351,10 +351,10 @@ static struct ast *funcdecl()
     }
     else ast->funcdef.rettype = (struct type) { .name = TYPE_VOID };
 
-    sym_putglob(ast->funcdef.name, ast->funcdef.rettype, 0);
+    sym_put(s_parser.currscope, ast->funcdef.name, ast->funcdef.rettype, SYM_FUNC);
 
     expect(T_LBRACE);
-    ast->funcdef.block   = block();
+    ast->funcdef.block = block(0);
     expect(T_RBRACE);
 
     return ast;
@@ -376,7 +376,7 @@ static struct ast *vardecl()
     ast->type = A_VARDEF;
 
     ast->vardef.name = strdup(name);
-    sym_putglob(name, type, 0);
+    sym_put(s_parser.currscope, name, type, SYM_VAR);
 
     return ast;
 }
@@ -406,14 +406,14 @@ static struct ast *if_statement()
     expect(T_RPAREN);
 
     expect(T_LBRACE);
-    ast->ifelse.ifblock = block();
+    ast->ifelse.ifblock = block(0);
     expect(T_RBRACE);
 
     if (curr()->type == T_ELSE)
     {
         next();
         expect(T_LBRACE);
-        ast->ifelse.elseblock = block();
+        ast->ifelse.elseblock = block(0);
         expect(T_RBRACE);
     }
 
@@ -432,7 +432,7 @@ static struct ast *while_statement()
     expect(T_RPAREN);
 
     expect(T_LBRACE);
-    ast->whileloop.body = block();
+    ast->whileloop.body = block(0);
     expect(T_RBRACE);
 
     return ast;
@@ -458,7 +458,7 @@ static struct ast *for_statement()
     expect(T_RPAREN);
 
     expect(T_LBRACE);
-    ast->forloop.body = block();
+    ast->forloop.body = block(0);
     expect(T_RBRACE);
 
     return ast;
@@ -494,10 +494,15 @@ static struct ast *statement()
     return ast;
 }
 
-static struct ast *block()
+static struct ast *block(int isglobal)
 {
     struct ast *block = calloc(1, sizeof(struct ast));
     block->type = A_BLOCK;
+
+    block->block.symtab.global = isglobal;
+
+    block->block.symtab.parent = s_parser.currscope;
+    s_parser.currscope = &block->block.symtab;
 
     while (curr()->type != T_RBRACE && curr()->type != T_EOF)
     {
@@ -509,16 +514,18 @@ static struct ast *block()
         block->block.statements = realloc(block->block.statements, ++block->block.cnt * sizeof(struct ast*));
         block->block.statements[block->block.cnt - 1] = ast;
     }
-
+    
+    s_parser.currscope = s_parser.currscope->parent;
     return block;
 }
 
 int parse(struct token *toks, struct ast *ast)
 {
-    s_parser.toks = toks;
-    s_parser.i    = 0;
+    s_parser.toks      = toks;
+    s_parser.i         = 0;
+    s_parser.currscope = NULL;
     
-    struct ast *tree = block();
+    struct ast *tree = block(1);
     memcpy(ast, tree, sizeof(struct ast));
 
     return 0;

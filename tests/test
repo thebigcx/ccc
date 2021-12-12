@@ -4,5 +4,5 @@ fn main(argc: int32, argv: int8**)
 {
     var size: uint64;
     size = sizeof int32;
-    *(x + 1) = 2;
+    puts("Hello, world!");
 }

@@ -1,5 +1,6 @@
 #include <gen.h>
 #include <sym.h>
+#include <asm.h>
 
 #include <assert.h>
 #include <stdlib.h>
@@ -8,6 +9,8 @@
 static const char *regs16[] = { "%r8w", "%r9w", "%r10w", "%r11w" };
 static const char *regs32[] = { "%r8d", "%r9d", "%r10d", "%r11d" };*/
 static const char *regs64[] = { "%r8",  "%r9",  "%r10",  "%r11" };
+
+static struct symtable *s_currscope = NULL;
 
 #define REGCNT (sizeof(regs64) / sizeof(regs64[0]))
 #define NOREG (-1)
@@ -66,32 +69,6 @@ static int add_string(const char *str, FILE *file)
     return l;
 }
 
-static size_t asm_sizeof(struct type type)
-{
-    if (type.ptr) return 8;
-
-    int prim;
-    switch (type.name)
-    {
-        case TYPE_INT8:
-        case TYPE_UINT8:
-            prim = 1; break;
-        case TYPE_INT16:
-        case TYPE_UINT16:
-            prim = 2; break;
-        case TYPE_INT32:
-        case TYPE_UINT32:
-        case TYPE_FLOAT32:
-            prim = 4; break;
-        case TYPE_INT64:
-        case TYPE_UINT64:
-        case TYPE_FLOAT64:
-            prim = 8; break;
-    }
-
-    return prim * (type.arrlen ? type.arrlen : 1);
-}
-
 // gen_* functions return the register
 
 static int gen_binop(struct ast *ast, FILE *file)
@@ -133,7 +110,13 @@ static int gen_binop(struct ast *ast, FILE *file)
             if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
                 fprintf(file, "\tmov\t%s, (%s)\n", regs64[r2], regs64[r1]);
             else
-                fprintf(file, "\tmov\t%s, %s(%%rip)\n", regs64[r2], ast->binop.lhs->ident.name);
+            {
+                struct sym *sym = sym_lookup(s_currscope, ast->binop.lhs->ident.name);
+                if (sym->attr & SYM_LOCAL)
+                    fprintf(file, "\tmov\t%s, -%lu(%%rbp)\n", regs64[r2], sym->stackoff);
+                else
+                    fprintf(file, "\tmov\t%s, %s(%%rip)\n", regs64[r2], sym->name);
+            }
             
             break;
         }
@@ -178,22 +161,40 @@ static int gen_intlit(struct ast *ast, FILE *file)
     return r;
 }
 
-static void gen_vardef(struct ast *ast, FILE *file)
-{
-    fprintf(file, "\t.comm %s, %lu\n", ast->vardef.name, asm_sizeof(sym_lookup(ast->vardef.name)->type));
-}
-
 static int gen_ident(struct ast *ast, FILE *file)
 {
     int r = regalloc();
-    fprintf(file, "\tmov\t%s(%%rip), %s\n", ast->ident.name, regs64[r]);
+
+    struct sym *sym = sym_lookup(s_currscope, ast->ident.name);
+    if (sym->attr & SYM_LOCAL)
+        fprintf(file, "\tmov\t-%lu(%%rbp), %s\n", sym->stackoff, regs64[r]);
+    else
+        fprintf(file, "\tmov\t%s(%%rip), %s\n", sym->name, regs64[r]);
+    
     return r;
 }
 
 static void gen_block(struct ast *ast, FILE *file)
 {
+    s_currscope = &ast->block.symtab;
+
+    if (!s_currscope->global)
+    {
+        fprintf(file, "\tpush\t%%rbp\n");
+        fprintf(file, "\tmov\t%%rsp, %%rbp\n");
+        fprintf(file, "\tsub\t$%lu, %%rsp\n", s_currscope->curr_stackoff);
+    }
+
     for (unsigned int i = 0; i < ast->block.cnt; i++)
         DISCARD(gen_code(ast->block.statements[i], file));
+
+    if (!s_currscope->global)
+    {
+        fprintf(file, "\tmov\t%%rbp, %%rsp\n");
+        fprintf(file, "\tpop\t%%rbp\n");
+    }
+
+    s_currscope = s_currscope->parent;
 }
 
 static void gen_funcdef(struct ast *ast, FILE *file)
@@ -338,9 +339,6 @@ int gen_code(struct ast *ast, FILE *file)
         case A_IDENT:  return gen_ident(ast, file);
         case A_STRLIT: return gen_strlit(ast, file);
         case A_SIZEOF: return gen_sizeof(ast, file);
-        case A_VARDEF:
-            gen_vardef(ast, file);
-            return NOREG;
         case A_FUNCDEF:
             gen_funcdef(ast, file);
             return NOREG;
@@ -369,5 +367,12 @@ int gen_code(struct ast *ast, FILE *file)
 
 void gen_ast(struct ast *ast, FILE *file)
 {
+    for (unsigned int i = 0; i < ast->block.symtab.cnt; i++)
+    {
+        struct sym *sym = &ast->block.symtab.syms[i];
+        if (sym->attr & SYM_GLOBAL && sym->attr & SYM_VAR)
+            fprintf(file, "\t.comm %s, %lu\n", sym->name, asm_sizeof(sym->type));
+    }
+
     gen_code(ast, file);
 }

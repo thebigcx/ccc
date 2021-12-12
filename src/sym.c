@@ -1,27 +1,35 @@
 #include <sym.h>
+#include <asm.h>
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
-static struct symtable s_globtab = { .cnt = 0, .parent = NULL, .syms = NULL };
-
-void sym_putglob(const char *name, struct type t, int attr)
+void sym_put(struct symtable *tab, const char *name, struct type t, int attr)
 {
-    s_globtab.syms = realloc(s_globtab.syms, (s_globtab.cnt + 1) * sizeof(struct sym));
-    s_globtab.syms[s_globtab.cnt] = (struct sym)
+    size_t stackoff = 0;
+
+    if (!tab->global)
+        stackoff = (tab->curr_stackoff += asm_sizeof(t));
+
+    tab->syms = realloc(tab->syms, (tab->cnt + 1) * sizeof(struct sym));
+    tab->syms[tab->cnt] = (struct sym)
     {
-        .attr     = SYM_GLOBAL | attr,
+        .attr     = tab->global ? SYM_GLOBAL | attr : SYM_LOCAL | attr,
         .name     = strdup(name),
         .type     = t,
-        .stackoff = 0
+        .stackoff = stackoff
     };
-    s_globtab.cnt++;
+    tab->cnt++;
 }
 
-struct sym *sym_lookup(const char *name)
+struct sym *sym_lookup(struct symtable *curr, const char *name)
 {
-    for (unsigned int i = 0; i < s_globtab.cnt; i++)
-        if (!strcmp(name, s_globtab.syms[i].name)) return &s_globtab.syms[i];
+    if (!curr) return NULL;
 
-    return NULL;
+    for (unsigned int i = 0; i < curr->cnt; i++)
+        if (!strcmp(name, curr->syms[i].name)) return &curr->syms[i];
+
+    // Recurse through the parent scopes
+    return sym_lookup(curr->parent, name);
 }

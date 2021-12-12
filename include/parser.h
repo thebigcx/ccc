@@ -1,5 +1,8 @@
 #pragma once
 
+#include <sym.h>
+#include <type.h>
+
 enum OPERATOR
 {
     OP_PLUS,
@@ -34,18 +37,6 @@ enum AST_TYPE
     A_UNARY,
     A_STRLIT,
     A_SIZEOF
-};
-
-enum TYPENAME
-{
-    TYPE_INT8, TYPE_INT16, TYPE_INT32, TYPE_INT64,
-    TYPE_UINT8, TYPE_UINT16, TYPE_UINT32, TYPE_UINT64,
-    TYPE_FLOAT32, TYPE_FLOAT64, TYPE_VOID
-};
-
-struct type
-{
-    int ptr, name, arrlen;
 };
 
 struct ast
@@ -94,6 +85,7 @@ struct ast
         {
             struct ast **statements;
             unsigned int cnt;
+            struct symtable symtab;
         } block;
 
         struct
