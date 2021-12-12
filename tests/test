@@ -1,5 +1,7 @@
 var x: int32*;
 
+fn puts(str: int8*);
+
 fn main(argc: int32, argv: int8**)
 {
     var size: uint64;

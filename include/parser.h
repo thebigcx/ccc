@@ -65,7 +65,7 @@ struct ast
         struct
         {
             struct type rettype;
-            struct ast *params[6];
+            struct type params[6];
             unsigned int paramcnt;
             struct ast *block;
             char *name;

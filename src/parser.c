@@ -338,7 +338,9 @@ static struct ast *funcdecl()
 
     while (curr()->type != T_RPAREN)
     {
-        ast->funcdef.params[ast->funcdef.paramcnt++] = vardecl();
+        next();
+        expect(T_COLON);
+        ast->funcdef.params[ast->funcdef.paramcnt++] = parsetype();
         if (curr()->type != T_RPAREN) expect(T_COMMA);
     }
     
@@ -353,9 +355,18 @@ static struct ast *funcdecl()
 
     sym_put(s_parser.currscope, ast->funcdef.name, ast->funcdef.rettype, SYM_FUNC);
 
-    expect(T_LBRACE);
-    ast->funcdef.block = block(0);
-    expect(T_RBRACE);
+    if (curr()->type == T_LBRACE)
+    {
+        next();
+        ast->funcdef.block = block(0);
+        expect(T_RBRACE);
+    }
+    else
+    {
+        expect(T_SEMI);
+        free(ast);
+        return NULL;
+    }
 
     return ast;
 }
@@ -507,6 +518,7 @@ static struct ast *block(int isglobal)
     while (curr()->type != T_RBRACE && curr()->type != T_EOF)
     {
         struct ast *ast = statement();
+        if (!ast) continue; // Could be a declaration - TODO: distinguish global block from function blocks
 
         if (ast->type == A_VARDEF || ast->type == A_BINOP || ast->type == A_RETURN || ast->type == A_CALL)
             expect(T_SEMI);
