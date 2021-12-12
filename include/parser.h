@@ -82,7 +82,6 @@ struct ast
 
         struct // TODO: storage class
         {
-            struct type type;
             char *name;
         } vardef;
 

@@ -1,4 +1,6 @@
 #include <gen.h>
+#include <sym.h>
+
 #include <assert.h>
 #include <stdlib.h>
 
@@ -178,7 +180,7 @@ static int gen_intlit(struct ast *ast, FILE *file)
 
 static void gen_vardef(struct ast *ast, FILE *file)
 {
-    fprintf(file, "\t.comm %s, %lu\n", ast->vardef.name, asm_sizeof(ast->vardef.type));
+    fprintf(file, "\t.comm %s, %lu\n", ast->vardef.name, asm_sizeof(sym_lookup(ast->vardef.name)->type));
 }
 
 static int gen_ident(struct ast *ast, FILE *file)

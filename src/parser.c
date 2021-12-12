@@ -1,5 +1,7 @@
 #include <parser.h>
 #include <lexer.h>
+#include <sym.h>
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -209,6 +211,9 @@ static struct ast *primary()
     {
         char *name = curr()->v.sval;
 
+        if (!sym_lookup(name))
+            error("Use of undeclared symbol '%s'\n", name);
+
         next();
         if (curr()->type == T_LPAREN)
         {
@@ -346,6 +351,8 @@ static struct ast *funcdecl()
     }
     else ast->funcdef.rettype = (struct type) { .name = TYPE_VOID };
 
+    sym_putglob(ast->funcdef.name, ast->funcdef.rettype, 0);
+
     expect(T_LBRACE);
     ast->funcdef.block   = block();
     expect(T_RBRACE);
@@ -369,7 +376,7 @@ static struct ast *vardecl()
     ast->type = A_VARDEF;
 
     ast->vardef.name = strdup(name);
-    ast->vardef.type = type; // TODO: assignent
+    sym_putglob(name, type, 0);
 
     return ast;
 }
