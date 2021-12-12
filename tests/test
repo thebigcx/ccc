@@ -1,12 +1,12 @@
-var x: int32*;
+var x: int32;
 
 fn puts(str: int8*);
 
 fn main(argc: int32, argv: int8**)
 {
-    var arr: int32[4];
-    arr[2] = 10;
+    var y: int32*;
+    y = &x;
 
-    var x: int32;
-    x = arr[2];
+    var z: int32**;
+    z = &y;
 }

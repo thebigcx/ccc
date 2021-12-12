@@ -37,7 +37,7 @@ enum AST_TYPE
     A_UNARY,
     A_STRLIT,
     A_SIZEOF,
-    A_ARRACC
+    //A_ARRACC
 };
 
 struct ast
@@ -131,10 +131,10 @@ struct ast
             struct type t;
         } sizeofop;
 
-        struct
+        /*struct
         {
             struct ast *arr, *off;
-        } arracc;
+        } arracc;*/
     };
 };
 

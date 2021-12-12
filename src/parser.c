@@ -244,7 +244,7 @@ static struct ast *primary()
         error("Expected primary expression, got '%s'\n", tokstrs[curr()->type]);
     }
 
-    if (curr()->type == T_LBRACK)
+    /*if (curr()->type == T_LBRACK)
     {
         // TODO: this could be better written as an array access's explicit form:
         // arr[5] is equivalent to *(&arr + 5)
@@ -257,7 +257,7 @@ static struct ast *primary()
 
         expect(T_RBRACK);
         return arr;
-    }
+    }*/
 
     return ast;
 }
