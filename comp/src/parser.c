@@ -189,6 +189,22 @@ static struct ast *primary()
         ast->unary.val = primary();
         return ast;
     }
+    else if (curr()->type == T_NOT)
+    {
+        next();
+        ast->type      = A_UNARY;
+        ast->unary.op  = OP_NOT;
+        ast->unary.val = primary();
+        return ast;
+    }
+    else if (curr()->type == T_MINUS)
+    {
+        next();
+        ast->type      = A_UNARY;
+        ast->unary.op  = OP_MINUS;
+        ast->unary.val = primary();
+        return ast;
+    }
     else if (curr()->type == T_SIZEOF)
     {
         next();

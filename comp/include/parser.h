@@ -18,6 +18,7 @@ enum OPERATOR
     OP_LTE,
     OP_ADDROF,
     OP_DEREF,
+    OP_NOT
 };
 
 enum AST_TYPE

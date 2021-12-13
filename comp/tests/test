@@ -3,9 +3,9 @@
 fn main(argc: int32, argv: int8**)
 {
     var x: int32;
-    x = 0;
+    x = 11;
 
-    if (!x)
+    if (!(-x < -10))
     {
         puts("x = 10\n");
     }

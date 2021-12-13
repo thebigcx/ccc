@@ -159,6 +159,19 @@ static int gen_unary(struct ast *ast, FILE *file)
                 return r2;
             }
         }
+        case OP_NOT:
+        {
+            int r = gen_code(ast->unary.val, file);
+            fprintf(file, "\tnot\t%s\n", regs64[r]);
+            fprintf(file, "\tand\t$1, %s\n", regs64[r]);
+            return r;
+        }
+        case OP_MINUS:
+        {
+            int r = gen_code(ast->unary.val, file);
+            fprintf(file, "\tneg\t%s\n", regs64[r]);
+            return r;
+        }
     }
 
     return NOREG;
