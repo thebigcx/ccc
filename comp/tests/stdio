@@ -1,0 +1,1 @@
+fn puts(str: int8*): int32;
