@@ -109,7 +109,7 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_LTE:
         {
             int r = regalloc();
-            fprintf(file, "\tcmp\t%s, %s\n", regs64[r1], regs64[r2]);
+            fprintf(file, "\tcmp\t%s, %s\n", regs64[r2], regs64[r1]);
             fprintf(file, "\t%s\t%%al\n", set_instructions[ast->binop.op]);
             fprintf(file, "\tmovzx\t%%al, %s\n", regs64[r]);
             
@@ -262,7 +262,7 @@ static void gen_ifelse(struct ast *ast, FILE *file)
     int endlbl = label();
 
     fprintf(file, "\tmov\t$1, %%rax\n");
-    fprintf(file, "\tcmp\t%s, %%rax\n", regs64[r]);
+    fprintf(file, "\tcmp\t%%rax, %s\n", regs64[r]);
     fprintf(file, "\tjne\tL%d\n", elselbl != -1 ? elselbl : endlbl);
 
     regfree(r);

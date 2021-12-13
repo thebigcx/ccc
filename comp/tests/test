@@ -1,12 +1,16 @@
 #include "tests/stdio"
 
-var x: int32;
-
 fn main(argc: int32, argv: int8**)
 {
-    var y: int32*;
-    y = &x;
+    var x: int32;
+    x = 0;
 
-    var z: int32**;
-    z = &y;
+    if (!x)
+    {
+        puts("x = 10\n");
+    }
+    else
+    {
+        puts("x != 10\n");
+    }
 }

@@ -1,1 +1,2 @@
 fn puts(str: int8*): int32;
+fn malloc(n: uint32): *;

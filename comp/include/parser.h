@@ -72,11 +72,6 @@ struct ast
             char *name;
         } funcdef;
 
-        struct // TODO: storage class
-        {
-            char *name;
-        } vardef;
-
         struct
         {
             char *name;

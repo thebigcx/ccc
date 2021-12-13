@@ -141,6 +141,7 @@ static struct type parsetype()
         case T_UINT64:  t.name = TYPE_UINT64; break;
         case T_FLOAT32: t.name = TYPE_FLOAT32; break;
         case T_FLOAT64: t.name = TYPE_FLOAT64; break;
+        case T_STAR:    t.name = TYPE_VOID; break;
         default:
             error("Expected typename, got '%s'\n", tokstrs[curr()->type]);
     }
@@ -401,8 +402,6 @@ static struct ast *vardecl()
     
     struct ast *ast = calloc(1, sizeof(struct ast));
     ast->type = A_VARDEF;
-
-    ast->vardef.name = strdup(name);
     sym_put(s_parser.currscope, name, type, SYM_VAR);
 
     return ast;
