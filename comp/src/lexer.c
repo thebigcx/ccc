@@ -148,7 +148,6 @@ int tokenize(const char *str, struct token **toks)
             case '{': pushnv(T_LBRACE, toks, &i); str++; continue;
             case '}': pushnv(T_RBRACE, toks, &i); str++; continue;
             case ',': pushnv(T_COMMA,  toks, &i); str++; continue;
-            case '&': pushnv(T_AMP,    toks, &i); str++; continue;
             case ':': pushnv(T_COLON,  toks, &i); str++; continue;
 
             case '!':
@@ -157,8 +156,7 @@ int tokenize(const char *str, struct token **toks)
                     pushnv(T_NEQ, toks, &i);
                     str++;
                 }
-                else
-                    pushnv(T_NOT, toks, &i);
+                else pushnv(T_NOT, toks, &i);
                 continue;
 
             case '=':
@@ -167,8 +165,7 @@ int tokenize(const char *str, struct token **toks)
                     pushnv(T_EQEQ, toks, &i);
                     str++;
                 }
-                else
-                    pushnv(T_EQ, toks, &i);
+                else pushnv(T_EQ, toks, &i);
                 continue;
 
             case '>':
@@ -177,8 +174,7 @@ int tokenize(const char *str, struct token **toks)
                     pushnv(T_GTE, toks, &i);
                     str++;
                 }
-                else
-                    pushnv(T_GT, toks, &i);
+                else pushnv(T_GT, toks, &i);
                 continue;
             case '<':
                 if (*(++str) == '=')
@@ -186,12 +182,20 @@ int tokenize(const char *str, struct token **toks)
                     pushnv(T_LTE, toks, &i);
                     str++;
                 }
-                else
-                    pushnv(T_LT, toks, &i);
+                else pushnv(T_LT, toks, &i);
                 continue;
 
             case '"':
                 str += push_strlit(str, toks, &i);
+                continue;
+
+            case '&':
+                if (*(++str) == '&')
+                {
+                    pushnv(T_LAND, toks, &i);
+                    str++;
+                }
+                else pushnv(T_AMP, toks, &i);
                 continue;
         }
 

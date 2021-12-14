@@ -47,51 +47,57 @@ static int termin()
 
 static const char *tokstrs[] =
 {
-    [T_EOF] = "EOF",
-    [T_PLUS] = "+",
-    [T_MINUS] = "-",
-    [T_STAR] = "*",
-    [T_SLASH] = "/",
-    [T_INTLIT] = "int literal",
-    [T_STRLIT] = "string literal",
-    [T_SEMI] = ";",
-    [T_COMMA] = ",",
-    [T_AMP] = "&",
-    [T_COLON] = ":",
-    [T_IDENT] = "identifer",
-    [T_EQ] = "=",
-    [T_EQEQ] = "==",
-    [T_NEQ] = "!=",
-    [T_GT] = ">",
-    [T_LT] = "<",
-    [T_GTE] = ">=",
-    [T_LTE] = "<=",
-    [T_NOT] = "!",
-    [T_INT8] = "int8",
-    [T_INT16] = "int16",
-    [T_INT32] = "int32",
-    [T_INT64] = "int64",
-    [T_UINT8] = "uint8",
-    [T_UINT16] = "uint16",
-    [T_UINT32] = "uint32",
-    [T_UINT64] = "uint64",
+    [T_EOF]     = "EOF",
+    [T_PLUS]    = "+",
+    [T_MINUS]   = "-",
+    [T_STAR]    = "*",
+    [T_SLASH]   = "/",
+    [T_INTLIT]  = "int literal",
+    [T_STRLIT]  = "string literal",
+    [T_SEMI]    = ";",
+    [T_COMMA]   = ",",
+    [T_AMP]     = "&",
+    [T_COLON]   = ":",
+    [T_IDENT]   = "identifer",
+    [T_EQ]      = "=",
+    [T_EQEQ]    = "==",
+    [T_NEQ]     = "!=",
+    [T_GT]      = ">",
+    [T_LT]      = "<",
+    [T_GTE]     = ">=",
+    [T_LTE]     = "<=",
+    [T_NOT]     = "!",
+    [T_LAND]    = "&&",
+    [T_LOR]     = "||",
+    [T_BITOR]   = "|",
+    [T_BITXOR]  = "^",
+    [T_COMP]    = "~",
+    [T_TERNARY] = "?",
+    [T_INT8]    = "int8",
+    [T_INT16]   = "int16",
+    [T_INT32]   = "int32",
+    [T_INT64]   = "int64",
+    [T_UINT8]   = "uint8",
+    [T_UINT16]  = "uint16",
+    [T_UINT32]  = "uint32",
+    [T_UINT64]  = "uint64",
     [T_FLOAT32] = "float32",
     [T_FLOAT64] = "float64",
-    [T_LPAREN] = "(",
-    [T_RPAREN] = ")",
-    [T_LBRACK] = "[",
-    [T_RBRACK] = "]",
-    [T_LBRACE] = "{",
-    [T_RBRACE] = "}",
-    [T_ASM] = "asm",
-    [T_RETURN] = "return",
-    [T_WHILE] = "while",
-    [T_IF] = "if",
-    [T_ELSE] = "else",
-    [T_FOR] = "for",
-    [T_FUNC] = "fn",
-    [T_VAR] = "var",
-    [T_SIZEOF] = "sizeof"
+    [T_LPAREN]  = "(",
+    [T_RPAREN]  = ")",
+    [T_LBRACK]  = "[",
+    [T_RBRACK]  = "]",
+    [T_LBRACE]  = "{",
+    [T_RBRACE]  = "}",
+    [T_ASM]     = "asm",
+    [T_RETURN]  = "return",
+    [T_WHILE]   = "while",
+    [T_IF]      = "if",
+    [T_ELSE]    = "else",
+    [T_FOR]     = "for",
+    [T_FUNC]    = "fn",
+    [T_VAR]     = "var",
+    [T_SIZEOF]  = "sizeof"
 };
 
 static int expect(int t)
@@ -110,17 +116,19 @@ static int operator(int tok)
 {
     switch (tok)
     {
-        case T_PLUS:   return OP_PLUS;
-        case T_MINUS:  return OP_MINUS;
-        case T_STAR:   return OP_MUL;
-        case T_SLASH:  return OP_DIV;
-        case T_EQ:     return OP_ASSIGN;
-        case T_EQEQ:   return OP_EQUAL;
-        case T_NEQ:    return OP_NEQUAL;
-        case T_GT:     return OP_GT;
-        case T_LT:     return OP_LT;
-        case T_GTE:    return OP_GTE;
-        case T_LTE:    return OP_LTE;
+        case T_PLUS:  return OP_PLUS;
+        case T_MINUS: return OP_MINUS;
+        case T_STAR:  return OP_MUL;
+        case T_SLASH: return OP_DIV;
+        case T_EQ:    return OP_ASSIGN;
+        case T_EQEQ:  return OP_EQUAL;
+        case T_NEQ:   return OP_NEQUAL;
+        case T_GT:    return OP_GT;
+        case T_LT:    return OP_LT;
+        case T_GTE:   return OP_GTE;
+        case T_LTE:   return OP_LTE;
+        case T_LAND:  return OP_LAND;
+        case T_LOR:   return OP_LOR;
     }
     return -1;
 }
@@ -287,16 +295,18 @@ static int rightassoc(int op)
 static int opprec[] =
 {
     [OP_ASSIGN] = 1,
-    [OP_PLUS]   = 2,
-    [OP_MINUS]  = 2,
-    [OP_MUL]    = 3,
-    [OP_DIV]    = 3,
-    [OP_EQUAL]  = 4,
-    [OP_NEQUAL] = 4,
-    [OP_LT]     = 5,
-    [OP_GT]     = 5,
-    [OP_LTE]    = 5,
-    [OP_GTE]    = 5
+    [OP_LOR]    = 2,
+    [OP_LAND]   = 3,
+    [OP_PLUS]   = 4,
+    [OP_MINUS]  = 4,
+    [OP_MUL]    = 5,
+    [OP_DIV]    = 5,
+    [OP_EQUAL]  = 6,
+    [OP_NEQUAL] = 6,
+    [OP_LT]     = 7,
+    [OP_GT]     = 7,
+    [OP_LTE]    = 7,
+    [OP_GTE]    = 7,
 };
 
 static struct ast *binexpr(int ptp)

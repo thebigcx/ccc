@@ -132,6 +132,18 @@ static int gen_binop(struct ast *ast, FILE *file)
             
             break;
         }
+        case OP_LAND:
+        {
+            fprintf(file, "\tand\t%s, %s\n", regs64[r1], regs64[r2]);
+            fprintf(file, "\tand\t$1, %s\n", regs64[r2]);
+            break;
+        }
+        case OP_LOR:
+        {
+            fprintf(file, "\tor\t%s, %s\n", regs64[r1], regs64[r2]);
+            fprintf(file, "\tand\t$1, %s\n", regs64[r2]);
+            break;
+        }
     }
 
     regfree(r1);

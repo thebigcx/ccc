@@ -18,7 +18,9 @@ enum OPERATOR
     OP_LTE,
     OP_ADDROF,
     OP_DEREF,
-    OP_NOT
+    OP_NOT,
+    OP_LAND,
+    OP_LOR
 };
 
 enum AST_TYPE

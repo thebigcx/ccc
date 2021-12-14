@@ -2,15 +2,18 @@
 
 fn main(argc: int32, argv: int8**)
 {
-    var x: int32;
+    var x: int64;
     x = 11;
 
-    if (!(-x < -10))
+    var y: int64;
+    y = 5;
+
+    if (x > y && x)
     {
-        puts("x = 10\n");
+        puts("true\n");
     }
     else
     {
-        puts("x != 10\n");
+        puts("false\n");
     }
 }
