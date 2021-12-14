@@ -61,6 +61,5 @@ char *preprocess(const char *input)
         line++;
     }
 
-    printf("%s\n", output);
     return output;
 }

@@ -10,10 +10,10 @@ fn main(argc: int32, argv: int8**)
 
     if (x < y || !x)
     {
-        puts("true\n");
+        puts("true");
     }
     else
     {
-        puts("false\n");
+        puts("false");
     }
 }

@@ -139,7 +139,6 @@ int tokenize(const char *str, struct token **toks)
             case '+': pushnv(T_PLUS,   toks, &i); str++; continue;
             case '-': pushnv(T_MINUS,  toks, &i); str++; continue;
             case '*': pushnv(T_STAR,   toks, &i); str++; continue;
-            case '/': pushnv(T_SLASH,  toks, &i); str++; continue;
             case ';': pushnv(T_SEMI,   toks, &i); str++; continue;
             case '(': pushnv(T_LPAREN, toks, &i); str++; continue;
             case ')': pushnv(T_RPAREN, toks, &i); str++; continue;
@@ -149,6 +148,23 @@ int tokenize(const char *str, struct token **toks)
             case '}': pushnv(T_RBRACE, toks, &i); str++; continue;
             case ',': pushnv(T_COMMA,  toks, &i); str++; continue;
             case ':': pushnv(T_COLON,  toks, &i); str++; continue;
+
+            case '/':
+            {
+                char c = *(++str);
+                if (c == '/')
+                {
+                    while (*str != '\n' && *str) str++;
+                    str++;
+                }
+                else if (c == '*')
+                {
+                    while (*str != '*' || *(str + 1) != '/') str++;
+                    str += 2;
+                }
+                else pushnv(T_SLASH, toks, &i);
+                continue;
+            }
 
             case '!':
                 if (*(++str) == '=')
