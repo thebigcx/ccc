@@ -159,7 +159,14 @@ int tokenize(const char *str, struct token **toks)
                 }
                 else if (c == '*')
                 {
-                    while (*str != '*' || *(str + 1) != '/') str++;
+                    int nest = 1;
+                    while (1)
+                    {
+                        if (*str == '/' && *(str + 1) == '*') nest++;
+                        if (*str == '*' && *(str + 1) == '/') nest--;
+                        if (!nest) break;
+                        str++;
+                    }
                     str += 2;
                 }
                 else pushnv(T_SLASH, toks, &i);

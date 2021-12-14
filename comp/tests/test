@@ -1,5 +1,14 @@
 #include "tests/stdio"
 
+/*
+
+Hello
+
+    /*
+        nested comments!
+    */
+*/
+
 fn main(argc: int32, argv: int8**)
 {
     var x: int64;
