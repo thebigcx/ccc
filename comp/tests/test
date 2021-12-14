@@ -8,7 +8,7 @@ fn main(argc: int32, argv: int8**)
     var y: int64;
     y = 5;
 
-    if (x > y && x)
+    if (x < y || !x)
     {
         puts("true\n");
     }

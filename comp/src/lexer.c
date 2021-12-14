@@ -197,6 +197,15 @@ int tokenize(const char *str, struct token **toks)
                 }
                 else pushnv(T_AMP, toks, &i);
                 continue;
+            
+            case '|':
+                if (*(++str) == '|')
+                {
+                    pushnv(T_LOR, toks, &i);
+                    str++;
+                }
+                else pushnv(T_BITOR, toks, &i);
+                continue;
         }
 
         if (isspace(*str))
