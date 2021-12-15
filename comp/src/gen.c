@@ -94,8 +94,9 @@ static int gen_binop(struct ast *ast, FILE *file)
             fprintf(file, "\tadd\t%s, %s\n", regs64[r1], regs64[r2]);
             break;
         case OP_MINUS:
-            fprintf(file, "\tsub\t%s, %s\n", regs64[r1], regs64[r2]);
-            break;
+            fprintf(file, "\tsub\t%s, %s\n", regs64[r2], regs64[r1]);
+            regfree(r2);
+            return r1;
         case OP_MUL:
             fprintf(file, "\timul\t%s, %s\n", regs64[r1], regs64[r2]);
             break;
@@ -213,7 +214,7 @@ static void gen_block(struct ast *ast, FILE *file)
 {
     s_currscope = &ast->block.symtab;
 
-    if (!s_currscope->global)
+    if (s_currscope->type == SYMTAB_FUNC)
     {
         fprintf(file, "\tpush\t%%rbp\n");
         fprintf(file, "\tmov\t%%rsp, %%rbp\n");
@@ -223,7 +224,7 @@ static void gen_block(struct ast *ast, FILE *file)
     for (unsigned int i = 0; i < ast->block.cnt; i++)
         DISCARD(gen_code(ast->block.statements[i], file));
 
-    if (!s_currscope->global)
+    if (s_currscope->type == SYMTAB_FUNC)
     {
         fprintf(file, "\tmov\t%%rbp, %%rsp\n");
         fprintf(file, "\tpop\t%%rbp\n");

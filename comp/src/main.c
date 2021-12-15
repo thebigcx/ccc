@@ -79,7 +79,7 @@ int main(int argc, char **argv)
     gen_ast(&ast, out);
     fclose(out);
 
-    system("gcc out.s");
+    system("gcc -g out.s");
 
     return 0;
 }

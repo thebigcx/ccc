@@ -5,18 +5,23 @@
 #include <string.h>
 #include <stdio.h>
 
+// TODO: This function isn't great
 void sym_put(struct symtable *tab, const char *name, struct type t, int attr)
 {
     size_t stackoff = 0;
 
-    if (!tab->global)
-        stackoff = (tab->curr_stackoff += asm_sizeof(t));
+    if (tab->type != SYMTAB_GLOB)
+    {
+        struct symtable *func = tab;
+        while (func->type != SYMTAB_FUNC) func = func->parent;
+        stackoff = (func->curr_stackoff += asm_sizeof(t));
+    }
 
     tab->syms = realloc(tab->syms, (tab->cnt + 1) * sizeof(struct sym));
     tab->syms[tab->cnt] = (struct sym)
     {
-        .attr     = tab->global ? SYM_GLOBAL | attr : SYM_LOCAL | attr,
-        .name     = strdup(name),
+        .attr         = tab->type == SYMTAB_GLOB ? SYM_GLOBAL | attr : SYM_LOCAL | attr,
+        .name         = strdup(name),
         .var.type     = t,
         .var.stackoff = stackoff
     };

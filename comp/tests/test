@@ -9,11 +9,6 @@ Hello
     */
 */
 
-fn test(x: int32)
-{
-
-}
-
 fn main(argc: int32, argv: int8**)
 {
     var x: int64;
@@ -22,7 +17,7 @@ fn main(argc: int32, argv: int8**)
     while (x > 0)
     {
         x = x - 1;
-        test();
+        puts("x");
         if (x == 2)
         {
             goto end;

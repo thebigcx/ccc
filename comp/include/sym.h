@@ -65,13 +65,17 @@ struct sym
     };
 };
 
+#define SYMTAB_GLOB  1 // Global symbol table
+#define SYMTAB_FUNC  2 // Function symbol table
+#define SYMTAB_BLOCK 3 // Block inside function
+
 struct symtable
 {
     struct sym      *syms;
     unsigned int    cnt;
     struct symtable *parent;
     size_t          curr_stackoff;
-    int             global; // Is the global symbol table
+    int             type;
 };
 
 extern struct symtable g_globsymtab;

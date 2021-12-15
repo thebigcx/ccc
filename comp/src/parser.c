@@ -97,7 +97,9 @@ static const char *tokstrs[] =
     [T_FOR]     = "for",
     [T_FUNC]    = "fn",
     [T_VAR]     = "var",
-    [T_SIZEOF]  = "sizeof"
+    [T_SIZEOF]  = "sizeof",
+    [T_GOTO]    = "goto",
+    [T_LABEL]   = "label"
 };
 
 static int expect(int t)
@@ -427,7 +429,7 @@ static struct ast *funcdecl()
     if (curr()->type == T_LBRACE)
     {
         next();
-        ast->funcdef.block = block(0);
+        ast->funcdef.block = block(SYMTAB_FUNC);
         expect(T_RBRACE);
     }
     else
@@ -484,14 +486,14 @@ static struct ast *if_statement()
     expect(T_RPAREN);
 
     expect(T_LBRACE);
-    ast->ifelse.ifblock = block(0);
+    ast->ifelse.ifblock = block(SYMTAB_BLOCK);
     expect(T_RBRACE);
 
     if (curr()->type == T_ELSE)
     {
         next();
         expect(T_LBRACE);
-        ast->ifelse.elseblock = block(0);
+        ast->ifelse.elseblock = block(SYMTAB_BLOCK);
         expect(T_RBRACE);
     }
 
@@ -510,7 +512,7 @@ static struct ast *while_statement()
     expect(T_RPAREN);
 
     expect(T_LBRACE);
-    ast->whileloop.body = block(0);
+    ast->whileloop.body = block(SYMTAB_BLOCK);
     expect(T_RBRACE);
 
     return ast;
@@ -536,7 +538,7 @@ static struct ast *for_statement()
     expect(T_RPAREN);
 
     expect(T_LBRACE);
-    ast->forloop.body = block(0);
+    ast->forloop.body = block(SYMTAB_BLOCK);
     expect(T_RBRACE);
 
     return ast;
@@ -599,12 +601,12 @@ static struct ast *statement()
     return ast;
 }
 
-static struct ast *block(int isglobal)
+static struct ast *block(int type)
 {
     struct ast *block = calloc(1, sizeof(struct ast));
     block->type = A_BLOCK;
 
-    block->block.symtab.global = isglobal;
+    block->block.symtab.type = type;
 
     block->block.symtab.parent = s_parser.currscope;
     s_parser.currscope = &block->block.symtab;
@@ -632,7 +634,7 @@ int parse(struct token *toks, struct ast *ast)
     s_parser.i         = 0;
     s_parser.currscope = NULL;
     
-    struct ast *tree = block(1);
+    struct ast *tree = block(SYMTAB_GLOB);
     memcpy(ast, tree, sizeof(struct ast));
 
     return 0;
