@@ -167,6 +167,18 @@ static struct type parsetype()
     return t;
 }
 
+// Check implicit conversion
+static int check_impconv(struct type t1, struct type t2)
+{
+    // TODO: temporary
+    return t1.name != TYPE_STRUCT && t2.name != TYPE_STRUCT;
+}
+
+static int isintegral(struct type t)
+{
+    return t.name != TYPE_STRUCT && t.name != TYPE_UNION;
+}
+
 static struct ast *binexpr();
 
 static struct ast *parenexpr()
