@@ -516,6 +516,29 @@ static struct ast *for_statement()
     return ast;
 }
 
+static struct ast *label()
+{
+    expect(T_LABEL);
+    struct ast *ast = calloc(1, sizeof(struct ast));
+    ast->type = A_LABEL;
+    ast->label.name = strdup(curr()->v.sval);
+    
+    next();
+    expect(T_COLON);
+    return ast;
+}
+
+static struct ast *gotolbl()
+{
+    expect(T_GOTO);
+    struct ast *ast = calloc(1, sizeof(struct ast));
+    ast->type = A_GOTO;
+    ast->gotolbl.label = strdup(curr()->v.sval);
+
+    next();
+    return ast;
+}
+
 static struct ast *statement()
 {
     struct ast *ast;
@@ -540,6 +563,10 @@ static struct ast *statement()
         ast = while_statement();
     else if (curr()->type == T_FOR)
         ast = for_statement();
+    else if (curr()->type == T_LABEL)
+        ast = label();
+    else if (curr()->type == T_GOTO)
+        ast = gotolbl();
     else
         ast = binexpr(0);
     
@@ -561,8 +588,11 @@ static struct ast *block(int isglobal)
         struct ast *ast = statement();
         if (!ast) continue; // Could be a declaration - TODO: distinguish global block from function blocks
 
-        if (ast->type == A_VARDEF || ast->type == A_BINOP || ast->type == A_RETURN || ast->type == A_CALL)
+        if (ast->type != A_FUNCDEF && ast->type != A_ASM && ast->type != A_IFELSE
+            && ast->type != A_FOR && ast->type != A_WHILE && ast->type != A_LABEL)
             expect(T_SEMI);
+        //if (ast->type == A_VARDEF || ast->type == A_BINOP || ast->type == A_RETURN || ast->type == A_CALL)
+            //expect(T_SEMI);
 
         block->block.statements = realloc(block->block.statements, ++block->block.cnt * sizeof(struct ast*));
         block->block.statements[block->block.cnt - 1] = ast;

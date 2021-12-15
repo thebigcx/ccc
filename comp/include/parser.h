@@ -40,6 +40,8 @@ enum AST_TYPE
     A_UNARY,
     A_STRLIT,
     A_SIZEOF,
+    A_LABEL,
+    A_GOTO
     //A_ARRACC
 };
 
@@ -128,6 +130,16 @@ struct ast
         {
             struct type t;
         } sizeofop;
+
+        struct
+        {
+            char *name;
+        } label;
+
+        struct
+        {
+            char *label;
+        } gotolbl;
 
         /*struct
         {

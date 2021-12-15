@@ -39,7 +39,9 @@ static struct keyword keywords[] =
     { "for",     T_FOR     },
     { "var",     T_VAR     },
     { "fn",      T_FUNC    },
-    { "sizeof",  T_SIZEOF  }
+    { "sizeof",  T_SIZEOF  },
+    { "goto",    T_GOTO    },
+    { "label",   T_LABEL   }
 };
 
 // Tests whether 'c' is a valid character in an identifier - letters, numbers, or '_'

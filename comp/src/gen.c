@@ -384,6 +384,16 @@ static int gen_sizeof(struct ast *ast, FILE *file)
     return r1;
 }*/
 
+void gen_label(struct ast *ast, FILE *file)
+{
+    fprintf(file, "%s:\n", ast->label.name);
+}
+
+void gen_goto(struct ast *ast, FILE *file)
+{
+    fprintf(file, "\tjmp\t%s\n", ast->gotolbl.label);
+}
+
 // Generate code for an AST node
 int gen_code(struct ast *ast, FILE *file)
 {
@@ -417,6 +427,12 @@ int gen_code(struct ast *ast, FILE *file)
             return NOREG;
         case A_FOR:
             gen_for(ast, file);
+            return NOREG;
+        case A_LABEL:
+            gen_label(ast, file);
+            return NOREG;
+        case A_GOTO:
+            gen_goto(ast, file);
             return NOREG;
     }
 
