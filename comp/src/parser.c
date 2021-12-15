@@ -242,13 +242,23 @@ static struct ast *primary()
         next();
         if (curr()->type == T_LPAREN)
         {
+            struct sym *sym = sym_lookup(s_parser.currscope, name);
+
             next();
-            while (curr()->type != T_RPAREN)
+            unsigned int i;
+            for (i = 0; curr()->type != T_RPAREN; i++)
             {
                 ast->call.params = realloc(ast->call.params, (ast->call.paramcnt + 1) * sizeof(struct ast*));
                 ast->call.params[ast->call.paramcnt++] = binexpr(0);
+
+                if (curr()->type != T_RPAREN) expect(T_COMMA);
             }
             expect(T_RPAREN);
+
+            if (i < sym->func.paramcnt)
+                error("Too few parameters in call to function '%s'\n", name);
+            else if (i > sym->func.paramcnt)
+                error("Too many parameters in call to function '%s'\n", name);
 
             ast->type = A_CALL;
             ast->call.name = strdup(name);
