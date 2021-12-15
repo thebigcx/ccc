@@ -17,9 +17,17 @@ void sym_put(struct symtable *tab, const char *name, struct type t, int attr)
     {
         .attr     = tab->global ? SYM_GLOBAL | attr : SYM_LOCAL | attr,
         .name     = strdup(name),
-        .type     = t,
-        .stackoff = stackoff
+        .var.type     = t,
+        .var.stackoff = stackoff
     };
+    tab->cnt++;
+}
+
+void sym_putglob(struct symtable *tab, struct sym* sym)
+{
+    sym->attr &= SYM_GLOBAL;
+    tab->syms = realloc(tab->syms, (tab->cnt + 1) * sizeof(struct sym));
+    tab->syms[tab->cnt] = *sym;
     tab->cnt++;
 }
 

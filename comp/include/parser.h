@@ -70,11 +70,8 @@ struct ast
         
         struct
         {
-            struct type rettype;
-            struct type params[6];
-            unsigned int paramcnt;
-            struct ast *block;
             char *name;
+            struct ast *block;
         } funcdef;
 
         struct

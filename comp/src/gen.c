@@ -76,7 +76,7 @@ static int asm_addrof(struct sym *sym, FILE *file)
     if (sym->attr & SYM_GLOBAL)
         fprintf(file, "\tlea\t%s(%%rip), %s\n", sym->name, regs64[r]);
     else
-        fprintf(file, "\tlea\t-%lu(%%rsp), %s\n", sym->stackoff, regs64[r]);
+        fprintf(file, "\tlea\t-%lu(%%rsp), %s\n", sym->var.stackoff, regs64[r]);
 
     return r;
 }
@@ -125,7 +125,7 @@ static int gen_binop(struct ast *ast, FILE *file)
             {
                 struct sym *sym = sym_lookup(s_currscope, ast->binop.lhs->ident.name);
                 if (sym->attr & SYM_LOCAL)
-                    fprintf(file, "\tmov\t%s, -%lu(%%rbp)\n", regs64[r2], sym->stackoff);
+                    fprintf(file, "\tmov\t%s, -%lu(%%rbp)\n", regs64[r2], sym->var.stackoff);
                 else
                     fprintf(file, "\tmov\t%s, %s(%%rip)\n", regs64[r2], sym->name);
             }
@@ -202,7 +202,7 @@ static int gen_ident(struct ast *ast, FILE *file)
 
     struct sym *sym = sym_lookup(s_currscope, ast->ident.name);
     if (sym->attr & SYM_LOCAL)
-        fprintf(file, "\tmov\t-%lu(%%rbp), %s\n", sym->stackoff, regs64[r]);
+        fprintf(file, "\tmov\t-%lu(%%rbp), %s\n", sym->var.stackoff, regs64[r]);
     else
         fprintf(file, "\tmov\t%s(%%rip), %s\n", sym->name, regs64[r]);
     
@@ -445,7 +445,7 @@ void gen_ast(struct ast *ast, FILE *file)
     {
         struct sym *sym = &ast->block.symtab.syms[i];
         if (sym->attr & SYM_GLOBAL && sym->attr & SYM_VAR)
-            fprintf(file, "\t.comm %s, %lu\n", sym->name, asm_sizeof(sym->type));
+            fprintf(file, "\t.comm %s, %lu\n", sym->name, asm_sizeof(sym->var.type));
     }
 
     gen_code(ast, file);

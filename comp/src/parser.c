@@ -371,10 +371,14 @@ static struct ast *vardecl();
 
 static struct ast *funcdecl()
 {
+    struct sym sym = { 0 };
+    sym.attr = SYM_FUNC;
+
     struct ast *ast = calloc(1, sizeof(struct ast));
     ast->type = A_FUNCDEF;
 
     ast->funcdef.name = strdup(curr()->v.sval);
+    sym.name = strdup(ast->funcdef.name);
     
     expect(T_IDENT);
     expect(T_LPAREN);
@@ -383,7 +387,7 @@ static struct ast *funcdecl()
     {
         next();
         expect(T_COLON);
-        ast->funcdef.params[ast->funcdef.paramcnt++] = parsetype();
+        sym.func.params[sym.func.paramcnt++] = parsetype();
         if (curr()->type != T_RPAREN) expect(T_COMMA);
     }
     
@@ -392,11 +396,11 @@ static struct ast *funcdecl()
     if (curr()->type == T_COLON)
     {
         next();
-        ast->funcdef.rettype = parsetype();
+        sym.func.ret = parsetype();
     }
-    else ast->funcdef.rettype = (struct type) { .name = TYPE_VOID };
+    else sym.func.ret = (struct type) { .name = TYPE_VOID };
 
-    sym_put(s_parser.currscope, ast->funcdef.name, ast->funcdef.rettype, SYM_FUNC);
+    sym_putglob(s_parser.currscope, &sym);
 
     if (curr()->type == T_LBRACE)
     {
@@ -591,8 +595,6 @@ static struct ast *block(int isglobal)
         if (ast->type != A_FUNCDEF && ast->type != A_ASM && ast->type != A_IFELSE
             && ast->type != A_FOR && ast->type != A_WHILE && ast->type != A_LABEL)
             expect(T_SEMI);
-        //if (ast->type == A_VARDEF || ast->type == A_BINOP || ast->type == A_RETURN || ast->type == A_CALL)
-            //expect(T_SEMI);
 
         block->block.statements = realloc(block->block.statements, ++block->block.cnt * sizeof(struct ast*));
         block->block.statements[block->block.cnt - 1] = ast;
