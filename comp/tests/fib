@@ -1,0 +1,17 @@
+#include "tests/stdio"
+
+fn main()
+{
+    var x, y, z: int32;
+
+    x = 1;
+    y = 1;
+    z = 0;
+
+    while (z < 100)
+    {
+        z = x + y;
+        x = y;
+        y = z;
+    }
+}

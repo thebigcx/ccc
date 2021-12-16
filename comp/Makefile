@@ -5,7 +5,7 @@ OBJ = $(patsubst %.c, %.o, $(SRC))
 CFLAGS = -Wall -Wextra -Werror=implicit-function-declaration -Wno-unused-function -g -Iinclude
 LDFLAGS =
 
-TARG = dist/compiler
+TARG = dist/comp
 
 .PHONY: all clean
 

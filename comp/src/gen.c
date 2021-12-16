@@ -5,9 +5,9 @@
 #include <assert.h>
 #include <stdlib.h>
 
-/*static const char *regs8[]  = { "%r8b", "%r9b", "%r10b", "%r11b" };
+static const char *regs8[]  = { "%r8b", "%r9b", "%r10b", "%r11b" };
 static const char *regs16[] = { "%r8w", "%r9w", "%r10w", "%r11w" };
-static const char *regs32[] = { "%r8d", "%r9d", "%r10d", "%r11d" };*/
+static const char *regs32[] = { "%r8d", "%r9d", "%r10d", "%r11d" };
 static const char *regs64[] = { "%r8",  "%r9",  "%r10",  "%r11" };
 
 static struct symtable *s_currscope = NULL;
@@ -81,6 +81,46 @@ static int asm_addrof(struct sym *sym, FILE *file)
     return r;
 }
 
+static const char *movs[9] =
+{
+    [1] = "movb",
+    [2] = "movw",
+    [4] = "movl",
+    [8] = "movq"
+};
+
+static const char *movzs[9] =
+{
+    [1] = "movzbq",
+    [2] = "movzwq",
+    [4] = "movslq",
+    [8] = "movq"
+};
+
+static const char **regs[9] =
+{
+    [1] = regs8,
+    [2] = regs16,
+    [4] = regs32,
+    [8] = regs64
+};
+
+static void gen_load(struct sym *sym, int r, FILE *file)
+{
+    if (sym->attr & SYM_LOCAL)
+        fprintf(file, "\t%s\t-%lu(%%rbp), %s\n", movzs[asm_sizeof(sym->var.type)], sym->var.stackoff, regs64[r]);
+    else
+        fprintf(file, "\t%s\t%s(%%rip), %s\n", movzs[asm_sizeof(sym->var.type)], sym->name, regs64[r]);
+}
+
+static void gen_store(struct sym *sym, int r, FILE* file)
+{
+    if (sym->attr & SYM_LOCAL)
+        fprintf(file, "\t%s\t%s, -%lu(%%rbp)\n", movs[asm_sizeof(sym->var.type)], regs[asm_sizeof(sym->var.type)][r], sym->var.stackoff);
+    else
+        fprintf(file, "\t%s\t%s, %s(%%rip)\n", movs[asm_sizeof(sym->var.type)], regs[asm_sizeof(sym->var.type)][r], sym->name);
+}
+
 // gen_* functions return the register
 
 static int gen_binop(struct ast *ast, FILE *file)
@@ -125,10 +165,7 @@ static int gen_binop(struct ast *ast, FILE *file)
             else
             {
                 struct sym *sym = sym_lookup(s_currscope, ast->binop.lhs->ident.name);
-                if (sym->attr & SYM_LOCAL)
-                    fprintf(file, "\tmov\t%s, -%lu(%%rbp)\n", regs64[r2], sym->var.stackoff);
-                else
-                    fprintf(file, "\tmov\t%s, %s(%%rip)\n", regs64[r2], sym->name);
+                gen_store(sym, r2, file);
             }
             
             break;
@@ -202,10 +239,7 @@ static int gen_ident(struct ast *ast, FILE *file)
     int r = regalloc();
 
     struct sym *sym = sym_lookup(s_currscope, ast->ident.name);
-    if (sym->attr & SYM_LOCAL)
-        fprintf(file, "\tmov\t-%lu(%%rbp), %s\n", sym->var.stackoff, regs64[r]);
-    else
-        fprintf(file, "\tmov\t%s(%%rip), %s\n", sym->name, regs64[r]);
+    gen_load(sym, r, file);
     
     return r;
 }
@@ -395,6 +429,17 @@ void gen_goto(struct ast *ast, FILE *file)
     fprintf(file, "\tjmp\t%s\n", ast->gotolbl.label);
 }
 
+int gen_cast(struct ast *ast, FILE *file)
+{
+    int r1 = gen_code(ast->cast.val, file);
+    int r2 = regalloc();
+
+    // TODO: movz
+
+    regfree(r1);
+    return r2;
+}
+
 // Generate code for an AST node
 int gen_code(struct ast *ast, FILE *file)
 {
@@ -407,6 +452,7 @@ int gen_code(struct ast *ast, FILE *file)
         case A_IDENT:  return gen_ident(ast, file);
         case A_STRLIT: return gen_strlit(ast, file);
         case A_SIZEOF: return gen_sizeof(ast, file);
+        case A_CAST:   return gen_cast(ast, file);
         //case A_ARRACC: return gen_arracc(ast, file);
         case A_FUNCDEF:
             gen_funcdef(ast, file);

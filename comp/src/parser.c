@@ -26,6 +26,12 @@ static struct token *curr()
     return &s_parser.toks[s_parser.i];
 }
 
+// Acts like postfix '++'
+static struct token *postnext()
+{
+    return &s_parser.toks[s_parser.i++];
+}
+
 static void error(const char *msg, ...)
 {
     printf("\033[1;31merror: \033[37mat line %d: \033[22m", curr()->line);
@@ -102,14 +108,19 @@ static const char *tokstrs[] =
     [T_LABEL]   = "label"
 };
 
-static int expect(int t)
+static int expectcurr(int t)
 {
     if (curr()->type != t)
     {
         error("Expected '%s', got '%s'\n", tokstrs[t], tokstrs[curr()->type]);
         return -1;
     }
+    return 0;
+}
 
+static int expect(int t)
+{
+    expectcurr(t);
     next();
     return 0;
 }
@@ -133,6 +144,13 @@ static int operator(int tok)
         case T_LOR:   return OP_LOR;
     }
     return -1;
+}
+
+static int istype(int token)
+{
+    return token == T_INT8  || token == T_INT16  || token == T_INT32  || token == T_INT64  || 
+           token == T_UINT8 || token == T_UINT16 || token == T_UINT32 || token == T_UINT64 || 
+           token == T_FLOAT32 || token == T_FLOAT64;
 }
 
 static struct type parsetype()
@@ -182,11 +200,28 @@ static int isintegral(struct type t)
 }
 
 static struct ast *binexpr();
+static struct ast *primary();
 
 static struct ast *parenexpr()
 {
     next();
-    struct ast *ast = binexpr(0);
+
+    struct ast *ast;
+    if (istype(curr()->type))
+    {
+        struct type t = parsetype();
+        struct ast *val = primary();
+
+        ast = calloc(1, sizeof(struct ast));
+        ast->type      = A_CAST;
+        ast->cast.type = t;
+        ast->cast.val  = val;
+    }
+    else
+    {
+        ast = binexpr(0);
+    }
+
     expect(T_RPAREN);
     return ast;
 }
@@ -383,13 +418,6 @@ static struct ast *inlineasm()
     return ast;
 }
 
-static int istype(int token)
-{
-    return token == T_INT8  || token == T_INT16  || token == T_INT32  || token == T_INT64  || 
-           token == T_UINT8 || token == T_UINT16 || token == T_UINT32 || token == T_UINT64 || 
-           token == T_FLOAT32 || token == T_FLOAT64;
-}
-
 static struct ast *block();
 static struct ast *vardecl();
 
@@ -444,20 +472,22 @@ static struct ast *funcdecl()
 
 static struct ast *vardecl()
 {
-    const char *name = curr()->v.sval;
-    expect(T_IDENT);
+    const char *vars[128] = { NULL };
+    unsigned int varcnt = 0;
 
-    struct type type = (struct type) { .name = TYPE_VOID, .arrlen = 0, .ptr = 0 };
-    if (curr()->type == T_COLON)
+    do
     {
-        next();
-        type = parsetype();
-    }
+        vars[varcnt++] = curr()->v.sval;
+        expect(T_IDENT);
+    } while (postnext()->type == T_COMMA);
     
+    struct type type = parsetype();
+
+    for (unsigned int i = 0; i < varcnt; i++)
+        sym_put(s_parser.currscope, vars[i], type, 0);
+
     struct ast *ast = calloc(1, sizeof(struct ast));
     ast->type = A_VARDEF;
-    sym_put(s_parser.currscope, name, type, SYM_VAR);
-
     return ast;
 }
 

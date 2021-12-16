@@ -41,7 +41,8 @@ enum AST_TYPE
     A_STRLIT,
     A_SIZEOF,
     A_LABEL,
-    A_GOTO
+    A_GOTO,
+    A_CAST
     //A_ARRACC
 };
 
@@ -137,6 +138,12 @@ struct ast
         {
             char *label;
         } gotolbl;
+
+        struct
+        {
+            struct type type;
+            struct ast *val;
+        } cast;
 
         /*struct
         {
