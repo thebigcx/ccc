@@ -432,12 +432,14 @@ void gen_goto(struct ast *ast, FILE *file)
 int gen_cast(struct ast *ast, FILE *file)
 {
     int r1 = gen_code(ast->cast.val, file);
-    int r2 = regalloc();
+    return r1;
+    //int r2 = regalloc();
 
     // TODO: movz
+    //return r2;
 
-    regfree(r1);
-    return r2;
+    //regfree(r1);
+    //return r2;
 }
 
 // Generate code for an AST node

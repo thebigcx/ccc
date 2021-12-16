@@ -14,4 +14,10 @@ fn main()
         x = y;
         y = z;
     }
+
+    var narrow: int8;
+    narrow = 10;
+
+    var wide: int64;
+    wide = (int64)narrow;
 }

@@ -196,7 +196,7 @@ static int check_impconv(struct type t1, struct type t2)
 
 static int isintegral(struct type t)
 {
-    return t.name != TYPE_STRUCT && t.name != TYPE_UNION;
+    return t.ptr || (t.name != TYPE_STRUCT && t.name != TYPE_UNION);
 }
 
 static struct ast *binexpr();
@@ -210,19 +210,23 @@ static struct ast *parenexpr()
     if (istype(curr()->type))
     {
         struct type t = parsetype();
+        if (!isintegral(t) || t.arrlen)
+            error("Cannot cast to non-integral type\n");
+
+        expect(T_RPAREN);
         struct ast *val = primary();
 
         ast = calloc(1, sizeof(struct ast));
         ast->type      = A_CAST;
         ast->cast.type = t;
         ast->cast.val  = val;
+        return ast;
     }
     else
     {
         ast = binexpr(0);
     }
 
-    expect(T_RPAREN);
     return ast;
 }
 
