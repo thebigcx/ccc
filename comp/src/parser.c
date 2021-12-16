@@ -44,6 +44,21 @@ static void error(const char *msg, ...)
     exit(-1);
 }
 
+static struct ast *mkast(int type)
+{
+    struct ast *ast = calloc(1, sizeof(struct ast));
+    ast->type = type;
+    return ast;
+}
+
+static struct ast *mkunary(int op, struct ast *val)
+{
+    struct ast *ast = mkast(A_UNARY);
+    ast->unary.op   = op;
+    ast->unary.val  = val;
+    return ast;
+}
+
 // Terminator
 static int termin()
 {
@@ -216,8 +231,7 @@ static struct ast *parenexpr()
         expect(T_RPAREN);
         struct ast *val = primary();
 
-        ast = calloc(1, sizeof(struct ast));
-        ast->type      = A_CAST;
+        ast = mkast(A_CAST);
         ast->cast.type = t;
         ast->cast.val  = val;
         return ast;
@@ -237,34 +251,22 @@ static struct ast *primary()
     if (curr()->type == T_AMP)
     {
         next();
-        ast->type      = A_UNARY;
-        ast->unary.op  = OP_ADDROF;
-        ast->unary.val = primary();
-        return ast;
+        return mkunary(OP_ADDROF, primary());
     }
     else if (curr()->type == T_STAR)
     {
         next();
-        ast->type      = A_UNARY;
-        ast->unary.op  = OP_DEREF;
-        ast->unary.val = primary();
-        return ast;
+        return mkunary(OP_DEREF, primary());
     }
     else if (curr()->type == T_NOT)
     {
         next();
-        ast->type      = A_UNARY;
-        ast->unary.op  = OP_NOT;
-        ast->unary.val = primary();
-        return ast;
+        return mkunary(OP_NOT, primary());
     }
     else if (curr()->type == T_MINUS)
     {
         next();
-        ast->type      = A_UNARY;
-        ast->unary.op  = OP_MINUS;
-        ast->unary.val = primary();
-        return ast;
+        return mkunary(OP_MINUS, primary());
     }
     else if (curr()->type == T_SIZEOF)
     {
@@ -390,8 +392,7 @@ static struct ast *binexpr(int ptp)
         next();
         rhs = binexpr(opprec[op]);
 
-        struct ast *expr = calloc(1, sizeof(struct ast));
-        expr->type = A_BINOP;
+        struct ast *expr = mkast(A_BINOP);
         expr->binop.lhs = lhs;
         expr->binop.rhs = rhs;
         expr->binop.op  = op;
@@ -413,11 +414,8 @@ static struct ast *binexpr(int ptp)
 
 static struct ast *inlineasm()
 {
-    struct ast *ast = calloc(1, sizeof(struct ast));
-    ast->type = A_ASM;
-    
+    struct ast *ast = mkast(A_ASM);
     ast->inasm.code = strdup(curr()->v.sval);
-
     next();
     return ast;
 }
@@ -430,9 +428,7 @@ static struct ast *funcdecl()
     struct sym sym = { 0 };
     sym.attr = SYM_FUNC;
 
-    struct ast *ast = calloc(1, sizeof(struct ast));
-    ast->type = A_FUNCDEF;
-
+    struct ast *ast = mkast(A_FUNCDEF);
     ast->funcdef.name = strdup(curr()->v.sval);
     sym.name = strdup(ast->funcdef.name);
     
@@ -490,17 +486,13 @@ static struct ast *vardecl()
     for (unsigned int i = 0; i < varcnt; i++)
         sym_put(s_parser.currscope, vars[i], type, 0);
 
-    struct ast *ast = calloc(1, sizeof(struct ast));
-    ast->type = A_VARDEF;
-    return ast;
+    return mkast(A_VARDEF);
 }
 
 static struct ast *return_statement()
 {
     next();
-
-    struct ast *ast = calloc(1, sizeof(struct ast));
-    ast->type = A_RETURN;
+    struct ast *ast = mkast(A_RETURN);
     
     if (curr()->type != T_SEMI)
         ast->ret.val = binexpr(0);
@@ -539,8 +531,7 @@ static struct ast *while_statement()
     next();
     expect(T_LPAREN);
 
-    struct ast *ast = calloc(1, sizeof(struct ast));
-    ast->type = A_WHILE;
+    struct ast *ast = mkast(A_WHILE);
 
     ast->whileloop.cond = binexpr(0);
     expect(T_RPAREN);
@@ -559,8 +550,7 @@ static struct ast *for_statement()
     next();
     expect(T_LPAREN);
 
-    struct ast *ast = calloc(1, sizeof(struct ast));
-    ast->type = A_FOR;
+    struct ast *ast = mkast(A_FOR);
 
     ast->forloop.init = statement();
     expect(T_SEMI);
@@ -581,8 +571,7 @@ static struct ast *for_statement()
 static struct ast *label()
 {
     expect(T_LABEL);
-    struct ast *ast = calloc(1, sizeof(struct ast));
-    ast->type = A_LABEL;
+    struct ast *ast = mkast(A_LABEL);
     ast->label.name = strdup(curr()->v.sval);
     
     next();
@@ -593,8 +582,7 @@ static struct ast *label()
 static struct ast *gotolbl()
 {
     expect(T_GOTO);
-    struct ast *ast = calloc(1, sizeof(struct ast));
-    ast->type = A_GOTO;
+    struct ast *ast = mkast(A_GOTO);
     ast->gotolbl.label = strdup(curr()->v.sval);
 
     next();
@@ -637,9 +625,7 @@ static struct ast *statement()
 
 static struct ast *block(int type)
 {
-    struct ast *block = calloc(1, sizeof(struct ast));
-    block->type = A_BLOCK;
-
+    struct ast *block = mkast(A_BLOCK);
     block->block.symtab.type = type;
 
     block->block.symtab.parent = s_parser.currscope;
