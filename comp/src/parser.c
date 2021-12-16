@@ -26,7 +26,7 @@ static struct token *curr()
     return &s_parser.toks[s_parser.i];
 }
 
-// Acts like postfix '++'
+// Acts like post increment '++'
 static struct token *postnext()
 {
     return &s_parser.toks[s_parser.i++];
@@ -94,6 +94,8 @@ static const char *tokstrs[] =
     [T_BITXOR]  = "^",
     [T_COMP]    = "~",
     [T_TERNARY] = "?",
+    [T_INC]     = "++",
+    [T_DEC]     = "--",
     [T_INT8]    = "int8",
     [T_INT16]   = "int16",
     [T_INT32]   = "int32",

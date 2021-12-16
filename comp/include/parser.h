@@ -42,7 +42,11 @@ enum AST_TYPE
     A_SIZEOF,
     A_LABEL,
     A_GOTO,
-    A_CAST
+    A_CAST,
+    A_PREINC,
+    A_POSTINC,
+    A_PREDEC,
+    A_POSTDEC
     //A_ARRACC
 };
 
@@ -144,6 +148,11 @@ struct ast
             struct type type;
             struct ast *val;
         } cast;
+
+        struct
+        {
+            struct ast *val;
+        } incdec; // ++, --
 
         /*struct
         {

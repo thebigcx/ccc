@@ -442,19 +442,47 @@ int gen_cast(struct ast *ast, FILE *file)
     //return r2;
 }
 
+int gen_preinc(struct ast *ast, FILE *file)
+{
+    (void)ast; (void)file;
+    return NOREG;
+}
+
+int gen_postinc(struct ast *ast, FILE *file)
+{
+    (void)ast; (void)file;
+    return NOREG;
+}
+
+int gen_predec(struct ast *ast, FILE *file)
+{
+    (void)ast; (void)file;
+    return NOREG;
+}
+
+int gen_postdec(struct ast *ast, FILE *file)
+{
+    (void)ast; (void)file;
+    return NOREG;
+}
+
 // Generate code for an AST node
 int gen_code(struct ast *ast, FILE *file)
 {
     switch (ast->type)
     {
-        case A_BINOP:  return gen_binop(ast, file);
-        case A_UNARY:  return gen_unary(ast, file);
-        case A_INTLIT: return gen_intlit(ast, file);
-        case A_CALL:   return gen_call(ast, file);
-        case A_IDENT:  return gen_ident(ast, file);
-        case A_STRLIT: return gen_strlit(ast, file);
-        case A_SIZEOF: return gen_sizeof(ast, file);
-        case A_CAST:   return gen_cast(ast, file);
+        case A_BINOP:   return gen_binop(ast, file);
+        case A_UNARY:   return gen_unary(ast, file);
+        case A_INTLIT:  return gen_intlit(ast, file);
+        case A_CALL:    return gen_call(ast, file);
+        case A_IDENT:   return gen_ident(ast, file);
+        case A_STRLIT:  return gen_strlit(ast, file);
+        case A_SIZEOF:  return gen_sizeof(ast, file);
+        case A_CAST:    return gen_cast(ast, file);
+        case A_PREINC:  return gen_preinc(ast, file);
+        case A_POSTINC: return gen_postinc(ast, file);
+        case A_PREDEC:  return gen_predec(ast, file);
+        case A_POSTDEC: return gen_postdec(ast, file);
         //case A_ARRACC: return gen_arracc(ast, file);
         case A_FUNCDEF:
             gen_funcdef(ast, file);

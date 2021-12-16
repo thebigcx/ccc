@@ -138,8 +138,28 @@ int tokenize(const char *str, struct token **toks)
     {
         switch (*str)
         {
-            case '+': pushnv(T_PLUS,   toks, &i); str++; continue;
-            case '-': pushnv(T_MINUS,  toks, &i); str++; continue;
+            case '+':
+            {
+                if (*(++str) == '+')
+                {
+                    pushnv(T_INC, toks, &i);
+                    str++;
+                }
+                else pushnv(T_PLUS, toks, &i);
+                continue;
+            }
+            
+            case '-':
+            {
+                if (*(++str) == '-')
+                {
+                    pushnv(T_DEC, toks, &i);
+                    str++;
+                }
+                else pushnv(T_MINUS, toks, &i);
+                continue;
+            }
+
             case '*': pushnv(T_STAR,   toks, &i); str++; continue;
             case ';': pushnv(T_SEMI,   toks, &i); str++; continue;
             case '(': pushnv(T_LPAREN, toks, &i); str++; continue;
