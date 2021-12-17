@@ -11,18 +11,7 @@ Hello
 
 fn main(argc: int32, argv: int8**)
 {
-    var x: int64;
-    x = 10;
-
-    while (x > 0)
-    {
-        x = x - 1;
-        puts("x");
-        if (x == 2)
-        {
-            goto end;
-        }
-    }
-
-label end:
+    var str: int8[4];
+    str[0] = 'l';
+    puts(str);
 }

@@ -69,16 +69,12 @@ static int add_string(const char *str, FILE *file)
     return l;
 }
 
-static int asm_addrof(struct sym *sym, FILE *file)
+static void asm_addrof(struct sym *sym, int r, FILE *file)
 {
-    int r = regalloc();
-
     if (sym->attr & SYM_GLOBAL)
-        fprintf(file, "\tlea\t%s(%%rip), %s\n", sym->name, regs64[r]);
+        fprintf(file, "\tleaq\t%s(%%rip), %s\n", sym->name, regs64[r]);
     else
-        fprintf(file, "\tlea\t-%lu(%%rsp), %s\n", sym->var.stackoff, regs64[r]);
-
-    return r;
+        fprintf(file, "\tleaq\t-%lu(%%rsp), %s\n", sym->var.stackoff, regs64[r]);
 }
 
 static const char *movs[9] =
@@ -107,10 +103,15 @@ static const char **regs[9] =
 
 static void gen_load(struct sym *sym, int r, FILE *file)
 {
-    if (sym->attr & SYM_LOCAL)
-        fprintf(file, "\t%s\t-%lu(%%rbp), %s\n", movzs[asm_sizeof(sym->var.type)], sym->var.stackoff, regs64[r]);
+    if (sym->var.type.arrlen)
+        asm_addrof(sym, r, file);
     else
-        fprintf(file, "\t%s\t%s(%%rip), %s\n", movzs[asm_sizeof(sym->var.type)], sym->name, regs64[r]);
+    {
+        if (sym->attr & SYM_LOCAL)
+            fprintf(file, "\t%s\t-%lu(%%rbp), %s\n", movzs[asm_sizeof(sym->var.type)], sym->var.stackoff, regs64[r]);
+        else
+            fprintf(file, "\t%s\t%s(%%rip), %s\n", movzs[asm_sizeof(sym->var.type)], sym->name, regs64[r]);
+    }
 }
 
 static void gen_store(struct sym *sym, int r, FILE* file)
@@ -161,7 +162,7 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_ASSIGN:
         {
             if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
-                fprintf(file, "\tmov\t%s, (%s)\n", regs64[r2], regs64[r1]);
+                fprintf(file, "\tmov\t%s, (%s)\n", regs64[r2], regs64[r1]); // TODO: proper pointer width dereference store
             else
             {
                 struct sym *sym = sym_lookup(s_currscope, ast->binop.lhs->ident.name);
@@ -194,7 +195,9 @@ static int gen_unary(struct ast *ast, FILE *file)
     {
         case OP_ADDROF:
         {
-            return asm_addrof(sym_lookup(s_currscope, ast->unary.val->ident.name), file);
+            int r = regalloc();
+            asm_addrof(sym_lookup(s_currscope, ast->unary.val->ident.name), r, file);
+            return r;
         }
         case OP_DEREF:
         {

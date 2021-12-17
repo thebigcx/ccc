@@ -128,6 +128,8 @@ static size_t push_strlit(const char *str, struct token **toks, size_t *len)
     return str - str2;
 }
 
+
+
 int tokenize(const char *str, struct token **toks)
 {
     s_lexer.currline = 1;
@@ -232,6 +234,12 @@ int tokenize(const char *str, struct token **toks)
 
             case '"':
                 str += push_strlit(str, toks, &i);
+                continue;
+
+            case '\'':
+                str++;
+                pushi(*str, toks, &i);
+                str += 2;
                 continue;
 
             case '&':

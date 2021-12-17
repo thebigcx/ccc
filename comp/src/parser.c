@@ -336,20 +336,28 @@ static struct ast *primary()
         error("Expected primary expression, got '%s'\n", tokstrs[curr()->type]);
     }
 
-    /*if (curr()->type == T_LBRACK)
+    if (curr()->type == T_LBRACK)
     {
         // TODO: this could be better written as an array access's explicit form:
         // arr[5] is equivalent to *(&arr + 5)
         next();
 
-        struct ast *arr = calloc(1, sizeof(struct ast));
+        struct ast *binop = mkast(A_BINOP);
+        binop->binop.op   = OP_PLUS;
+        binop->binop.lhs  = ast;
+        binop->binop.rhs  = primary();
+
+        struct ast *access = mkunary(OP_DEREF, binop);
+
+        //struct ast *arr = mkunary(OP_DEREF);
+        /*struct ast *arr = calloc(1, sizeof(struct ast));
         arr->type       = A_ARRACC;
         arr->arracc.arr = ast;
-        arr->arracc.off = binexpr(0);
+        arr->arracc.off = binexpr(0);*/
 
         expect(T_RBRACK);
-        return arr;
-    }*/
+        return access;
+    }
 
     return ast;
 }
