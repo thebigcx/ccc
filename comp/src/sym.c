@@ -22,8 +22,8 @@ void sym_put(struct symtable *tab, const char *name, struct type t, int attr)
     {
         .attr         = tab->type == SYMTAB_GLOB ? SYM_GLOBAL | attr : SYM_LOCAL | attr,
         .name         = strdup(name),
-        .var.type     = t,
-        .var.stackoff = stackoff
+        .type         = t,
+        .stackoff     = stackoff
     };
     tab->cnt++;
 }

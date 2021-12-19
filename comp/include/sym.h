@@ -5,12 +5,12 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define SYM_LOCAL  (0b000001)
-#define SYM_GLOBAL (0b000010)
-#define SYM_STATIC (0b000100)
-#define SYM_EXTERN (0b001000)
-#define SYM_VAR    (0b010000)
-#define SYM_FUNC   (0b100000)
+#define SYM_LOCAL  (0b0001)
+#define SYM_GLOBAL (0b0010)
+#define SYM_STATIC (0b0100)
+#define SYM_EXTERN (0b1000)
+//#define SYM_VAR    (0b010000)
+//#define SYM_FUNC   (0b100000)
 
 struct ast;
 
@@ -47,24 +47,8 @@ struct sym
 {
     int attr;
     char *name;
-
-    union
-    {
-        struct
-        {
-            struct type type;
-            size_t stackoff;
-        } var;
-
-        struct
-        {
-            struct type ret;
-            struct type params[6];
-            unsigned int paramcnt;
-        } func;
-    };
-    //struct type t;
-    //size_t stackoff;
+    struct type type;
+    size_t stackoff; // If local
 };
 
 #define SYMTAB_GLOB  1 // Global symbol table

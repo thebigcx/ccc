@@ -352,11 +352,11 @@ static struct ast *primary()
             next();
             if (curr()->type == T_LPAREN)
             {
-                if (!(sym->attr & SYM_FUNC))
+                if (sym->type.name != TYPE_FUNC)
                     error("Call of variable '%s' which is not a function nor a function pointer\n", sym->name);
 
                 ast = mkast(A_CALL);
-                ast->vtype = sym->func.ret;
+                ast->vtype = *sym->type.func.ret;
 
                 next();
                 unsigned int i;
@@ -369,9 +369,9 @@ static struct ast *primary()
                 }
                 expect(T_RPAREN);
 
-                if (i < sym->func.paramcnt)
+                if (i < sym->type.func.paramcnt)
                     error("Too few parameters in call to function '%s'\n", name);
-                else if (i > sym->func.paramcnt)
+                else if (i > sym->type.func.paramcnt)
                     error("Too many parameters in call to function '%s'\n", name);
 
                 ast->call.name = strdup(name);
@@ -380,10 +380,7 @@ static struct ast *primary()
             else
             {
                 ast             = mkast(A_IDENT);
-                if (sym->attr & SYM_FUNC)
-                    ast->vtype = mktype(TYPE_FUNC, 0, 0);
-                else
-                    ast->vtype      = sym->var.type;
+                ast->vtype      = sym->type;
                 ast->ident.name = strdup(name);
                 return ast;
             }
@@ -471,7 +468,8 @@ static struct ast *vardecl();
 static struct ast *funcdecl()
 {
     struct sym sym = { 0 };
-    sym.attr = SYM_FUNC;
+    sym.type.name = TYPE_FUNC;
+    sym.type.func.ret = calloc(1, sizeof(struct type));
 
     struct ast *ast = mkast(A_FUNCDEF);
     ast->funcdef.name = strdup(curr()->v.sval);
@@ -484,7 +482,8 @@ static struct ast *funcdecl()
     {
         next();
         expect(T_COLON);
-        sym.func.params[sym.func.paramcnt++] = parsetype();
+        sym.type.func.params[sym.type.func.paramcnt] = calloc(1, sizeof(struct type));
+        *sym.type.func.params[sym.type.func.paramcnt++] = parsetype();
         if (curr()->type != T_RPAREN) expect(T_COMMA);
     }
     
@@ -493,9 +492,9 @@ static struct ast *funcdecl()
     if (curr()->type == T_COLON)
     {
         next();
-        sym.func.ret = parsetype();
+        *sym.type.func.ret = parsetype();
     }
-    else sym.func.ret = (struct type) { .name = TYPE_VOID };
+    else *sym.type.func.ret = (struct type) { .name = TYPE_VOID };
 
     sym_putglob(s_parser.currscope, &sym);
 
@@ -529,7 +528,7 @@ static struct ast *vardecl()
     struct type type = parsetype();
 
     for (unsigned int i = 0; i < varcnt; i++)
-        sym_put(s_parser.currscope, vars[i], type, type.name == TYPE_FUNC ? SYM_FUNC : 0);
+        sym_put(s_parser.currscope, vars[i], type, 0);
 
     return mkast(A_VARDEF);
 }

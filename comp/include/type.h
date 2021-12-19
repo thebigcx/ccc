@@ -13,5 +13,10 @@ struct type
 {
     int ptr, name, arrlen;
 
-    // TODO: function signature for functions and function pointers
+    struct
+    {
+        struct type *ret;
+        struct type *params[6];
+        unsigned int paramcnt;
+    } func;
 };

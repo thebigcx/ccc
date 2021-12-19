@@ -74,7 +74,7 @@ static void asm_addrof(struct sym *sym, int r, FILE *file)
     if (sym->attr & SYM_GLOBAL)
         fprintf(file, "\tleaq\t%s(%%rip), %s\n", sym->name, regs64[r]);
     else
-        fprintf(file, "\tleaq\t-%lu(%%rbp), %s\n", sym->var.stackoff, regs64[r]);
+        fprintf(file, "\tleaq\t-%lu(%%rbp), %s\n", sym->stackoff, regs64[r]);
 }
 
 static const char *movs[9] =
@@ -103,23 +103,23 @@ static const char **regs[9] =
 
 static void gen_load(struct sym *sym, int r, FILE *file)
 {
-    if (sym->var.type.arrlen)
+    if (sym->type.arrlen)
         asm_addrof(sym, r, file);
     else
     {
         if (sym->attr & SYM_LOCAL)
-            fprintf(file, "\t%s\t-%lu(%%rbp), %s\n", movzs[asm_sizeof(sym->var.type)], sym->var.stackoff, regs64[r]);
+            fprintf(file, "\t%s\t-%lu(%%rbp), %s\n", movzs[asm_sizeof(sym->type)], sym->stackoff, regs64[r]);
         else
-            fprintf(file, "\t%s\t%s(%%rip), %s\n", movzs[asm_sizeof(sym->var.type)], sym->name, regs64[r]);
+            fprintf(file, "\t%s\t%s(%%rip), %s\n", movzs[asm_sizeof(sym->type)], sym->name, regs64[r]);
     }
 }
 
 static void gen_store(struct sym *sym, int r, FILE* file)
 {
     if (sym->attr & SYM_LOCAL)
-        fprintf(file, "\t%s\t%s, -%lu(%%rbp)\n", movs[asm_sizeof(sym->var.type)], regs[asm_sizeof(sym->var.type)][r], sym->var.stackoff);
+        fprintf(file, "\t%s\t%s, -%lu(%%rbp)\n", movs[asm_sizeof(sym->type)], regs[asm_sizeof(sym->type)][r], sym->stackoff);
     else
-        fprintf(file, "\t%s\t%s, %s(%%rip)\n", movs[asm_sizeof(sym->var.type)], regs[asm_sizeof(sym->var.type)][r], sym->name);
+        fprintf(file, "\t%s\t%s, %s(%%rip)\n", movs[asm_sizeof(sym->type)], regs[asm_sizeof(sym->type)][r], sym->name);
 }
 
 static void gen_storederef(struct ast *ast, int r1, int r2, FILE *file)
@@ -532,8 +532,8 @@ void gen_ast(struct ast *ast, FILE *file)
     for (unsigned int i = 0; i < ast->block.symtab.cnt; i++)
     {
         struct sym *sym = &ast->block.symtab.syms[i];
-        if (sym->attr & SYM_GLOBAL && sym->attr & SYM_VAR)
-            fprintf(file, "\t.comm %s, %lu\n", sym->name, asm_sizeof(sym->var.type));
+        if (sym->attr & SYM_GLOBAL && !(sym->type.name == TYPE_FUNC && !sym->type.ptr))
+            fprintf(file, "\t.comm %s, %lu\n", sym->name, asm_sizeof(sym->type));
     }
 
     gen_code(ast, file);
