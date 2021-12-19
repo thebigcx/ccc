@@ -13,5 +13,10 @@ fn main(argc: int32, argv: int8**)
 {
     var str: int8[4];
     str[0] = 'l';
+    str[1] = 0;
     puts(str);
+    //puts("l");
+
+    var x: int32;
+    x = 10;
 }

@@ -74,7 +74,7 @@ static void asm_addrof(struct sym *sym, int r, FILE *file)
     if (sym->attr & SYM_GLOBAL)
         fprintf(file, "\tleaq\t%s(%%rip), %s\n", sym->name, regs64[r]);
     else
-        fprintf(file, "\tleaq\t-%lu(%%rsp), %s\n", sym->var.stackoff, regs64[r]);
+        fprintf(file, "\tleaq\t-%lu(%%rbp), %s\n", sym->var.stackoff, regs64[r]);
 }
 
 static const char *movs[9] =
@@ -122,6 +122,11 @@ static void gen_store(struct sym *sym, int r, FILE* file)
         fprintf(file, "\t%s\t%s, %s(%%rip)\n", movs[asm_sizeof(sym->var.type)], regs[asm_sizeof(sym->var.type)][r], sym->name);
 }
 
+static void gen_storederef(struct ast *ast, int r1, int r2, FILE *file)
+{
+    fprintf(file, "\t%s\t%s, (%s)\n", movs[asm_sizeof(ast->vtype)], regs[asm_sizeof(ast->vtype)][r1], regs64[r2]);
+}
+
 // gen_* functions return the register
 
 static int gen_binop(struct ast *ast, FILE *file)
@@ -162,11 +167,12 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_ASSIGN:
         {
             if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
-                fprintf(file, "\tmov\t%s, (%s)\n", regs64[r2], regs64[r1]); // TODO: proper pointer width dereference store
+                gen_storederef(ast, r2, r1, file);
             else
             {
                 struct sym *sym = sym_lookup(s_currscope, ast->binop.lhs->ident.name);
                 gen_store(sym, r2, file);
+                return r2; // r1 is NOREG
             }
             
             break;
@@ -239,6 +245,8 @@ static int gen_intlit(struct ast *ast, FILE *file)
 
 static int gen_ident(struct ast *ast, FILE *file)
 {
+    if (ast->lvalue) return NOREG;
+
     int r = regalloc();
 
     struct sym *sym = sym_lookup(s_currscope, ast->ident.name);

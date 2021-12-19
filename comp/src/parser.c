@@ -300,8 +300,11 @@ static struct ast *post(struct ast *ast)
             binop->binop.op   = OP_PLUS;
             binop->binop.lhs  = ast;
             binop->binop.rhs  = pre();
+            binop->vtype      = mktype(binop->binop.lhs->vtype.name, 0, 1);
 
             struct ast *access = mkunary(OP_DEREF, binop);
+            access->vtype = binop->vtype;
+            access->vtype.ptr--;
             expect(T_RBRACK);
             return access;
         }
@@ -316,22 +319,22 @@ static struct ast *primary()
     switch (curr()->type)
     {
         case T_SIZEOF:
-            next();
             ast = mkast(A_SIZEOF);
             ast->vtype = mktype(TYPE_UINT64, 0, 0);
             ast->sizeofop.t = parsetype();
+            next();
             return ast;
         case T_INTLIT:
-            next();
             ast = mkast(A_INTLIT);
             ast->vtype = mktype(TYPE_UINT64, 0, 0); // TODO: determine int type
             ast->intlit.ival = curr()->v.ival;
+            next();
             return ast;
         case T_STRLIT:
-            next();
             ast = mkast(A_STRLIT);
             ast->vtype = mktype(TYPE_INT8, 0, 1); // int8*
             ast->strlit.str = strdup(curr()->v.sval);
+            next();
             return ast;
         case T_LPAREN: return parenexpr();
 
@@ -429,6 +432,8 @@ static struct ast *binexpr(int ptp)
         expr->binop.lhs = lhs;
         expr->binop.rhs = rhs;
         expr->binop.op  = op;
+
+        expr->vtype = lhs->vtype; // TODO: weak type conversion
 
         lhs->lvalue = 1;
         rhs->lvalue = 0;
