@@ -204,21 +204,22 @@ static struct type parsetype()
     return t;
 }
 
-// Check implicit conversion
-static int check_impconv(struct type t1, struct type t2)
-{
-    // TODO: temporary
-    return t1.name != TYPE_STRUCT && t2.name != TYPE_STRUCT;
-}
-
 static int isintegral(struct type t)
 {
-    return t.ptr || (t.name != TYPE_STRUCT && t.name != TYPE_UNION);
+    return t.name != TYPE_STRUCT && t.name != TYPE_UNION && t.name != TYPE_FUNC && !t.ptr && !t.arrlen;
 }
 
 static struct type mktype(int name, int arrlen, int ptr)
 {
     return (struct type) { .name = name, .arrlen = arrlen, .ptr = ptr };
+}
+
+static int type_compatible(struct type t1, struct type t2)
+{
+    if (t1.ptr && t2.ptr) return 1;
+    if (isintegral(t1) && isintegral(t2)) return 1;
+
+    return 0;
 }
 
 static struct ast *binexpr();
@@ -234,13 +235,14 @@ static struct ast *parenexpr()
     if (istype(curr()->type))
     {
         struct type t = parsetype();
-        if (!isintegral(t) || t.arrlen)
+        if (!isintegral(t) || t.arrlen || t.ptr)
             error("Cannot cast to non-integral type\n");
 
         expect(T_RPAREN);
         struct ast *val = pre();
 
         ast = mkast(A_CAST);
+        ast->vtype = t;
         ast->cast.type = t;
         ast->cast.val  = val;
         return ast;
@@ -377,7 +379,10 @@ static struct ast *primary()
             else
             {
                 ast             = mkast(A_IDENT);
-                ast->vtype      = sym->var.type;
+                if (sym->attr & SYM_FUNC)
+                    ast->vtype = mktype(TYPE_FUNC, 0, 0);
+                else
+                    ast->vtype      = sym->var.type;
                 ast->ident.name = strdup(name);
                 return ast;
             }
@@ -432,6 +437,9 @@ static struct ast *binexpr(int ptp)
         expr->binop.lhs = lhs;
         expr->binop.rhs = rhs;
         expr->binop.op  = op;
+
+        if (!type_compatible(lhs->vtype, rhs->vtype))
+            error("Incompatible types in binary expression.\n");
 
         expr->vtype = lhs->vtype; // TODO: weak type conversion
 
