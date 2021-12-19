@@ -12,5 +12,6 @@ enum TYPENAME
 struct type
 {
     int ptr, name, arrlen;
-    int isfunc;
+
+    // TODO: function signature for functions and function pointers
 };

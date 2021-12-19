@@ -63,6 +63,8 @@ struct sym
             unsigned int paramcnt;
         } func;
     };
+    //struct type t;
+    //size_t stackoff;
 };
 
 #define SYMTAB_GLOB  1 // Global symbol table

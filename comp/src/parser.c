@@ -187,6 +187,7 @@ static struct type parsetype()
         case T_FLOAT32: t.name = TYPE_FLOAT32; break;
         case T_FLOAT64: t.name = TYPE_FLOAT64; break;
         case T_STAR:    t.name = TYPE_VOID; break;
+        case T_FUNC:    t.name = TYPE_FUNC; break;
         default:
             error("Expected typename, got '%s'\n", tokstrs[curr()->type]);
     }
@@ -528,7 +529,7 @@ static struct ast *vardecl()
     struct type type = parsetype();
 
     for (unsigned int i = 0; i < varcnt; i++)
-        sym_put(s_parser.currscope, vars[i], type, 0);
+        sym_put(s_parser.currscope, vars[i], type, type.name == TYPE_FUNC ? SYM_FUNC : 0);
 
     return mkast(A_VARDEF);
 }
