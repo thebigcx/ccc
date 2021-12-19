@@ -30,7 +30,7 @@ void sym_put(struct symtable *tab, const char *name, struct type t, int attr)
 
 void sym_putglob(struct symtable *tab, struct sym* sym)
 {
-    sym->attr &= SYM_GLOBAL;
+    sym->attr |= SYM_GLOBAL;
     tab->syms = realloc(tab->syms, (tab->cnt + 1) * sizeof(struct sym));
     tab->syms[tab->cnt] = *sym;
     tab->cnt++;

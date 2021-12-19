@@ -216,8 +216,15 @@ static int isintegral(struct type t)
     return t.ptr || (t.name != TYPE_STRUCT && t.name != TYPE_UNION);
 }
 
+static struct type mktype(int name, int arrlen, int ptr)
+{
+    return (struct type) { .name = name, .arrlen = arrlen, .ptr = ptr };
+}
+
 static struct ast *binexpr();
 static struct ast *primary();
+static struct ast *pre();
+static struct ast *post(struct ast *ast);
 
 static struct ast *parenexpr()
 {
@@ -231,7 +238,7 @@ static struct ast *parenexpr()
             error("Cannot cast to non-integral type\n");
 
         expect(T_RPAREN);
-        struct ast *val = primary();
+        struct ast *val = pre();
 
         ast = mkast(A_CAST);
         ast->cast.type = t;
@@ -246,120 +253,138 @@ static struct ast *parenexpr()
     return ast;
 }
 
+static struct ast *pre()
+{
+    struct ast *ast;
+
+    switch (curr()->type)
+    {
+        case T_AMP: // TODO: type checking: must be an lvalue
+            next();
+            ast = mkunary(OP_ADDROF, pre());
+            ast->vtype = ast->unary.val->vtype;
+            ast->vtype.ptr++;
+            return ast;
+        case T_STAR:
+            next();
+            ast = mkunary(OP_DEREF, pre());
+            if (!ast->unary.val->vtype.ptr)
+                error("Cannot dereference non-pointer type.\n");
+            ast->vtype = ast->unary.val->vtype;
+            ast->vtype.ptr--;
+            return ast;
+        case T_NOT:
+            next();
+            ast = mkunary(OP_NOT, pre());
+            ast->vtype = ast->unary.val->vtype;
+            return ast;
+        case T_MINUS:
+            next();
+            ast = mkunary(OP_MINUS, pre());
+            ast->vtype = ast->unary.val->vtype;
+            return ast;
+        default:
+            return post(primary());
+    }
+}
+
+static struct ast *post(struct ast *ast)
+{
+    switch (curr()->type)
+    {
+        case T_LBRACK:
+        {
+            next();
+
+            struct ast *binop = mkast(A_BINOP);
+            binop->binop.op   = OP_PLUS;
+            binop->binop.lhs  = ast;
+            binop->binop.rhs  = pre();
+
+            struct ast *access = mkunary(OP_DEREF, binop);
+            expect(T_RBRACK);
+            return access;
+        }
+        default: return ast;
+    }
+}
+
 static struct ast *primary()
 {
-    struct ast *ast = calloc(1, sizeof(struct ast));
+    struct ast *ast;
 
-    if (curr()->type == T_AMP)
+    switch (curr()->type)
     {
-        next();
-        return mkunary(OP_ADDROF, primary());
-    }
-    else if (curr()->type == T_STAR)
-    {
-        next();
-        return mkunary(OP_DEREF, primary());
-    }
-    else if (curr()->type == T_NOT)
-    {
-        next();
-        return mkunary(OP_NOT, primary());
-    }
-    else if (curr()->type == T_MINUS)
-    {
-        next();
-        return mkunary(OP_MINUS, primary());
-    }
-    else if (curr()->type == T_SIZEOF)
-    {
-        next();
-        ast->type       = A_SIZEOF;
-        ast->sizeofop.t = parsetype();
-        return ast;
-    }
-    else if (curr()->type == T_INTLIT)
-    {
-        ast->type = A_INTLIT;
-        ast->intlit.ival = curr()->v.ival;
-        next();
-    }
-    else if (curr()->type == T_STRLIT)
-    {
-        ast->type = A_STRLIT;
-        ast->strlit.str = strdup(curr()->v.sval);
-        next();
-    }
-    else if (curr()->type == T_IDENT)
-    {
-        char *name = curr()->v.sval;
-
-        if (!sym_lookup(s_parser.currscope, name))
-            error("Use of undeclared symbol '%s'\n", name);
-
-        next();
-        if (curr()->type == T_LPAREN)
-        {
-            struct sym *sym = sym_lookup(s_parser.currscope, name);
-
+        case T_SIZEOF:
             next();
-            unsigned int i;
-            for (i = 0; curr()->type != T_RPAREN; i++)
-            {
-                ast->call.params = realloc(ast->call.params, (ast->call.paramcnt + 1) * sizeof(struct ast*));
-                ast->call.params[ast->call.paramcnt++] = binexpr(0);
+            ast = mkast(A_SIZEOF);
+            ast->vtype = mktype(TYPE_UINT64, 0, 0);
+            ast->sizeofop.t = parsetype();
+            return ast;
+        case T_INTLIT:
+            next();
+            ast = mkast(A_INTLIT);
+            ast->vtype = mktype(TYPE_UINT64, 0, 0); // TODO: determine int type
+            ast->intlit.ival = curr()->v.ival;
+            return ast;
+        case T_STRLIT:
+            next();
+            ast = mkast(A_STRLIT);
+            ast->vtype = mktype(TYPE_INT8, 0, 1); // int8*
+            ast->strlit.str = strdup(curr()->v.sval);
+            return ast;
+        case T_LPAREN: return parenexpr();
 
-                if (curr()->type != T_RPAREN) expect(T_COMMA);
-            }
-            expect(T_RPAREN);
-
-            if (i < sym->func.paramcnt)
-                error("Too few parameters in call to function '%s'\n", name);
-            else if (i > sym->func.paramcnt)
-                error("Too many parameters in call to function '%s'\n", name);
-
-            ast->type = A_CALL;
-            ast->call.name = strdup(name);
-        }
-        else
+        case T_IDENT:
         {
-            ast->type = A_IDENT;
-            ast->ident.name = strdup(name);
+            char *name = curr()->v.sval;
+
+            struct sym *sym = sym_lookup(s_parser.currscope, name);
+            if (!sym)
+                error("Use of undeclared symbol '%s'\n", name);
+            
+            next();
+            if (curr()->type == T_LPAREN)
+            {
+                if (!(sym->attr & SYM_FUNC))
+                    error("Call of variable '%s' which is not a function nor a function pointer\n", sym->name);
+
+                ast = mkast(A_CALL);
+                ast->vtype = sym->func.ret;
+
+                next();
+                unsigned int i;
+                for (i = 0; curr()->type != T_RPAREN; i++)
+                {
+                    ast->call.params = realloc(ast->call.params, (ast->call.paramcnt + 1) * sizeof(struct ast*));
+                    ast->call.params[ast->call.paramcnt++] = binexpr(0);
+
+                    if (curr()->type != T_RPAREN) expect(T_COMMA);
+                }
+                expect(T_RPAREN);
+
+                if (i < sym->func.paramcnt)
+                    error("Too few parameters in call to function '%s'\n", name);
+                else if (i > sym->func.paramcnt)
+                    error("Too many parameters in call to function '%s'\n", name);
+
+                ast->call.name = strdup(name);
+                return ast;
+            }
+            else
+            {
+                ast             = mkast(A_IDENT);
+                ast->vtype      = sym->var.type;
+                ast->ident.name = strdup(name);
+                return ast;
+            }
         }
-    }
-    else if (curr()->type == T_LPAREN)
-    {
-        free(ast);
-        ast = parenexpr();
-    }
-    else
-    {
-        error("Expected primary expression, got '%s'\n", tokstrs[curr()->type]);
+
+        default:
+            error("Expected primary expression, got '%s'\n", tokstrs[curr()->type]);
     }
 
-    if (curr()->type == T_LBRACK)
-    {
-        // TODO: this could be better written as an array access's explicit form:
-        // arr[5] is equivalent to *(&arr + 5)
-        next();
-
-        struct ast *binop = mkast(A_BINOP);
-        binop->binop.op   = OP_PLUS;
-        binop->binop.lhs  = ast;
-        binop->binop.rhs  = primary();
-
-        struct ast *access = mkunary(OP_DEREF, binop);
-
-        //struct ast *arr = mkunary(OP_DEREF);
-        /*struct ast *arr = calloc(1, sizeof(struct ast));
-        arr->type       = A_ARRACC;
-        arr->arracc.arr = ast;
-        arr->arracc.off = binexpr(0);*/
-
-        expect(T_RBRACK);
-        return access;
-    }
-
-    return ast;
+    return NULL;
 }
 
 static int rightassoc(int op)
@@ -387,15 +412,13 @@ static int opprec[] =
 static struct ast *binexpr(int ptp)
 {
     struct ast *rhs;
-    struct ast *lhs = primary();
+    struct ast *lhs = pre();
 
     if (termin()) return lhs;
 
     int op;
     if ((op = operator(curr()->type)) == -1)
-    {
         error("Expected operator, got '%s'\n", tokstrs[curr()->type]);
-    }
 
     while (opprec[op] > ptp || (rightassoc(op) && opprec[op] == ptp))
     {
@@ -414,9 +437,7 @@ static struct ast *binexpr(int ptp)
         if (termin()) return lhs;
 
         if ((op = operator(curr()->type)) == -1)
-        {
             error("Expected operator, got '%s'\n", tokstrs[curr()->type]);
-        }
     }
 
     return lhs;
