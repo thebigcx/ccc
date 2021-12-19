@@ -47,7 +47,6 @@ enum AST_TYPE
     A_POSTINC,
     A_PREDEC,
     A_POSTDEC
-    //A_ARRACC
 };
 
 struct ast
@@ -100,7 +99,7 @@ struct ast
 
         struct
         {
-            char *name;
+            struct ast *ast;
             struct ast **params;
             unsigned int paramcnt;
         } call;
@@ -155,11 +154,6 @@ struct ast
         {
             struct ast *val;
         } incdec; // ++, --
-
-        /*struct
-        {
-            struct ast *arr, *off;
-        } arracc;*/
     };
 };
 

@@ -5,9 +5,11 @@ fn function()
 
 fn main(argc: int32, argv: int8**)
 {
-    var x: fn*;
+    var x: fn* (): int32;
 
     x = &function;
+    function();
+    x();
 
     //x();
 }

@@ -187,13 +187,34 @@ static struct type parsetype()
         case T_FLOAT32: t.name = TYPE_FLOAT32; break;
         case T_FLOAT64: t.name = TYPE_FLOAT64; break;
         case T_STAR:    t.name = TYPE_VOID; break;
-        case T_FUNC:    t.name = TYPE_FUNC; break;
+        case T_FUNC: // Parse function signature
+        {
+            t.name = TYPE_FUNC;
+            t.func.ret = calloc(1, sizeof(struct type));
+            
+            while (next()->type == T_STAR) t.ptr++;
+            expect(T_LPAREN);
+            
+            while (curr()->type != T_RPAREN)
+            {
+                t.func.params[t.func.paramcnt] = calloc(1, sizeof(struct type));
+                *t.func.params[t.func.paramcnt++] = parsetype();
+                if (curr()->type != T_RPAREN) expect(T_COMMA);
+            }
+
+            next();
+            expect(T_COLON);
+
+            *t.func.ret = parsetype();
+            goto array;
+        }
         default:
             error("Expected typename, got '%s'\n", tokstrs[curr()->type]);
     }
 
     while (next()->type == T_STAR) t.ptr++;
 
+array:
     if (curr()->type == T_LBRACK)
     {
         next();
@@ -311,6 +332,46 @@ static struct ast *post(struct ast *ast)
             expect(T_RBRACK);
             return access;
         }
+        case T_LPAREN:
+        {
+            if (ast->vtype.name != TYPE_FUNC)
+                error("Call of non-function or function-pointer type.\n");
+
+            struct ast *call = mkast(A_CALL);
+
+            if (ast->vtype.ptr)
+                call->call.ast = ast;
+            else
+            {
+                call->call.ast            = mkast(A_UNARY);
+                call->call.ast->unary.op  = OP_ADDROF;
+                call->call.ast->unary.val = ast;
+            }
+
+            call->vtype = *ast->vtype.func.ret;
+
+            next();
+            unsigned int i;
+            for (i = 0; curr()->type != T_RPAREN; i++)
+            {
+                call->call.params = realloc(call->call.params, (ast->call.paramcnt + 1) * sizeof(struct ast*));
+                call->call.params[call->call.paramcnt++] = binexpr(0);
+
+                if (curr()->type != T_RPAREN) expect(T_COMMA);
+            }
+            expect(T_RPAREN);
+
+            if (i < ast->vtype.func.paramcnt)
+                error("Too few parameters in call to function\n");
+            else if (i > ast->vtype.func.paramcnt)
+                error("Too many parameters in call to function\n");
+
+            /*ast->call.ast = mkast(A_UNARY);
+            ast->call.ast->unary.op = OP_ADDROF;
+            ast->call.ast->unary.val = mkast(A_IDENT);
+            ast->call.ast->unary.val->ident.name = strdup(name);*/
+            return call;
+        }
         default: return ast;
     }
 }
@@ -350,7 +411,7 @@ static struct ast *primary()
                 error("Use of undeclared symbol '%s'\n", name);
             
             next();
-            if (curr()->type == T_LPAREN)
+            /*if (curr()->type == T_LPAREN)
             {
                 if (sym->type.name != TYPE_FUNC)
                     error("Call of variable '%s' which is not a function nor a function pointer\n", sym->name);
@@ -374,16 +435,19 @@ static struct ast *primary()
                 else if (i > sym->type.func.paramcnt)
                     error("Too many parameters in call to function '%s'\n", name);
 
-                ast->call.name = strdup(name);
+                ast->call.ast = mkast(A_UNARY);
+                ast->call.ast->unary.op = OP_ADDROF;
+                ast->call.ast->unary.val = mkast(A_IDENT);
+                ast->call.ast->unary.val->ident.name = strdup(name);
                 return ast;
             }
             else
-            {
+            {*/
                 ast             = mkast(A_IDENT);
                 ast->vtype      = sym->type;
                 ast->ident.name = strdup(name);
                 return ast;
-            }
+            //}
         }
 
         default:

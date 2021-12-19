@@ -21,6 +21,8 @@ size_t asm_sizeof(struct type type)
         case TYPE_UINT64:
         case TYPE_FLOAT64:
             prim = 8; break;
+        case TYPE_FUNC:
+            return 8;
     }
 
     return prim * (type.arrlen ? type.arrlen : 1);

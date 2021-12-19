@@ -305,8 +305,11 @@ static int gen_call(struct ast *ast, FILE *file)
         regfree(par);
     }
 
-    int r = regalloc();
-    fprintf(file, "\tcall\t%s\n", ast->call.name);
+    int r = gen_code(ast->call.ast, file);
+    fprintf(file, "\tcall\t*%s\n", regs64[r]);
+    regfree(r);
+
+    r = regalloc();
     fprintf(file, "\tmov\t%%rax, %s\n", regs64[r]);
     return r;
 }
@@ -407,28 +410,6 @@ static int gen_sizeof(struct ast *ast, FILE *file)
     fprintf(file, "\tmov\t$%lu, %s\n", asm_sizeof(ast->sizeofop.t), regs64[r]);
     return r;
 }
-
-/*static int gen_arracc(struct ast *ast, FILE *file)
-{
-    int r1 = gen_code(ast->arracc.arr, file);
-    int r2 = gen_code(ast->arracc.off, file);
-
-    int r3 = asm_addrof(sym_lookup(s_currscope, ast->unary.val->ident.name), file);
-    fprintf(file, "\tadd\t%s, %s\n", regs64[r3], regs64[r1]);
-    
-    regfree(r3);
-    regfree(r2);
-    
-    if (!ast->lvalue)
-    {
-        int r4 = regalloc();
-        fprintf(file, "\tmov\t(%s), %s\n", regs64[r1], regs64[r4]);
-        regfree(r1);
-        return r4;
-    }
-
-    return r1;
-}*/
 
 void gen_label(struct ast *ast, FILE *file)
 {
