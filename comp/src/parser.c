@@ -411,6 +411,19 @@ static struct ast *post(struct ast *ast)
     }
 }
 
+static struct ast *intlit()
+{
+    struct ast *ast = mkast(A_INTLIT);
+
+    if (curr()->v.ival < UINT32_MAX)
+        ast->vtype = mktype(TYPE_UINT32, 0, 0);
+    else
+        ast->vtype = mktype(TYPE_UINT64, 0, 0);
+
+    ast->intlit.ival = curr()->v.ival;
+    return ast;
+}
+
 static struct ast *primary()
 {
     struct ast *ast;
@@ -424,9 +437,7 @@ static struct ast *primary()
             next();
             return ast;
         case T_INTLIT:
-            ast = mkast(A_INTLIT);
-            ast->vtype = mktype(TYPE_UINT64, 0, 0); // TODO: determine int type
-            ast->intlit.ival = curr()->v.ival;
+            ast = intlit();
             next();
             return ast;
         case T_STRLIT:
@@ -537,10 +548,16 @@ static struct ast *funcdecl()
     sym.type.name = TYPE_FUNC;
     sym.type.func.ret = calloc(1, sizeof(struct type));
 
+    if (curr()->type == T_EXTERN)
+    {
+        sym.attr |= SYM_EXTERN;
+        next();
+    }
+
     struct ast *ast = mkast(A_FUNCDEF);
     ast->funcdef.name = strdup(curr()->v.sval);
-    sym.name = strdup(ast->funcdef.name);
-    
+    sym.name = strdup(ast->funcdef.name);    
+
     expect(T_IDENT);
     expect(T_LPAREN);
 
@@ -562,10 +579,20 @@ static struct ast *funcdecl()
     }
     else *sym.type.func.ret = (struct type) { .name = TYPE_VOID };
 
+    struct sym *prev = sym_lookup(s_parser.currscope, sym.name);
+    if (prev)
+    {
+        if (!(sym.attr & SYM_EXTERN) && !(prev->attr & SYM_EXTERN))
+            error("Multiple definition of function '%s'\n", sym.name);
+    }
+
     sym_putglob(s_parser.currscope, &sym);
 
     if (curr()->type == T_LBRACE)
     {
+        if (sym.attr & SYM_EXTERN)
+            error("Definition of function marked 'extern'.\n");
+
         s_parser.currfunc = ast;
         
         next();
@@ -576,6 +603,9 @@ static struct ast *funcdecl()
     }
     else
     {
+        if (!(sym.attr & SYM_EXTERN))
+            error("No definition of function not marked 'extern'\n");
+
         expect(T_SEMI);
         free(ast);
         return NULL;

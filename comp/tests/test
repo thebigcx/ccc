@@ -1,5 +1,7 @@
 typedef isize = int8;
 
+fn extern puts();
+
 fn function() -> isize
 {
     return 0;
