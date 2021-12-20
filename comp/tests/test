@@ -1,4 +1,6 @@
-fn function() -> int8
+typedef isize = int8;
+
+fn function() -> isize
 {
     return 0;
 }
@@ -7,11 +9,12 @@ typedef Callback = fn* () -> int32;
 
 fn main(argc: int32, argv: int8**)
 {
-    var x: Callback;
-
-    x = &function;
+    var x = &function;
+    
     function();
     x();
+
+    var y: int8 = 10;
 
     var x: int32[4];
 }

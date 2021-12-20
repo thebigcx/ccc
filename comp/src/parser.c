@@ -25,6 +25,11 @@ static struct token *next()
     return &s_parser.toks[++s_parser.i];
 }
 
+static struct token *back()
+{
+    return &s_parser.toks[--s_parser.i];
+}
+
 static struct token *curr()
 {
     return &s_parser.toks[s_parser.i];
@@ -581,21 +586,50 @@ static struct ast *funcdecl()
 
 static struct ast *vardecl()
 {
-    const char *vars[128] = { NULL };
-    unsigned int varcnt = 0;
+    const char *name = curr()->v.sval;
+    expect(T_IDENT);
+    struct type t;
+    struct ast *ast;
+    int autov = 0; // Auto type
 
-    do
+    if (curr()->type != T_COLON)
     {
-        vars[varcnt++] = curr()->v.sval;
-        expect(T_IDENT);
-    } while (postnext()->type == T_COMMA);
-    
-    struct type type = parsetype();
+        if (curr()->type != T_EQ)
+            error("Auto variable must be initialized.\n");
+        autov = 1;
+    }
+    else
+    {
+        expect(T_COLON);
+        t = parsetype();
+        ast = mkast(A_VARDEF);
+    }
 
-    for (unsigned int i = 0; i < varcnt; i++)
-        sym_put(s_parser.currscope, vars[i], type, 0);
+    if (curr()->type == T_EQ)
+    {
+        expect(T_EQ);
+        struct ast *init = binexpr(0);
 
-    return mkast(A_VARDEF);
+        ast = mkast(A_BINOP);
+        ast->binop.op = OP_ASSIGN;
+        ast->binop.rhs = init;
+        ast->binop.lhs = mkast(A_IDENT);
+        ast->binop.lhs->ident.name = strdup(name);
+
+        ast->binop.rhs->lvalue = 0;
+        ast->binop.lhs->lvalue = 1;
+
+        if (autov)
+            t = ast->binop.rhs->vtype;
+        else
+        {
+            if (!type_compatible(ast->binop.rhs->vtype, t))
+                error("Incompatible types in variable initialization\n");
+        }
+    }
+
+    sym_put(s_parser.currscope, name, t, 0);
+    return ast;
 }
 
 static struct ast *return_statement()

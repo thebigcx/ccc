@@ -325,7 +325,7 @@ static void gen_return(struct ast *ast, FILE *file)
         regfree(r);
     }
 
-    fprintf(file, "\tjmp .L%d\n", ast->ret.func->funcdef.endlbl);
+    fprintf(file, "\tjmp\t.L%d\n", ast->ret.func->funcdef.endlbl);
 }
 
 static void gen_ifelse(struct ast *ast, FILE *file)
