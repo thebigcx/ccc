@@ -7,7 +7,7 @@ typedef Callback = fn* () -> int32;
 
 fn main(argc: int32, argv: int8**)
 {
-    var x: fn* ();
+    var x: Callback;
 
     x = &function;
     function();
