@@ -3,30 +3,15 @@ fn function() -> int32
     return 0;
 }
 
-/*
+typedef Callback = fn* () -> int32;
 
-Hello
-
-/* Hello */
-
-*/
-
-/*fn main(argc: int32, argv: int8**)
+fn main(argc: int32, argv: int8**)
 {
     var x: fn* ();
-
-    (*x)(int32);
 
     x = &function;
     function();
     x();
 
-    /*
-    dfasdsada
-    */
-
-    //x();
-
-    var x: int[4];
-    int x[4];
-}*/
+    var x: int32[4];
+}

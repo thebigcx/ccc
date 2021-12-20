@@ -259,21 +259,8 @@ static void gen_block(struct ast *ast, FILE *file)
 {
     s_currscope = &ast->block.symtab;
 
-    if (s_currscope->type == SYMTAB_FUNC)
-    {
-        fprintf(file, "\tpush\t%%rbp\n");
-        fprintf(file, "\tmov\t%%rsp, %%rbp\n");
-        fprintf(file, "\tsub\t$%lu, %%rsp\n", s_currscope->curr_stackoff);
-    }
-
     for (unsigned int i = 0; i < ast->block.cnt; i++)
         DISCARD(gen_code(ast->block.statements[i], file));
-
-    if (s_currscope->type == SYMTAB_FUNC)
-    {
-        fprintf(file, "\tmov\t%%rbp, %%rsp\n");
-        fprintf(file, "\tpop\t%%rbp\n");
-    }
 
     s_currscope = s_currscope->parent;
 }
@@ -282,7 +269,14 @@ static void gen_funcdef(struct ast *ast, FILE *file)
 {
     fprintf(file, "\t.global %s\n", ast->funcdef.name); // TODO: storage class
     fprintf(file, "%s:\n", ast->funcdef.name);
+
+    fprintf(file, "\tpush\t%%rbp\n");
+    fprintf(file, "\tmov\t%%rsp, %%rbp\n");
+    fprintf(file, "\tsub\t$%lu, %%rsp\n", ast->funcdef.block->block.symtab.curr_stackoff);
+
     gen_block(ast->funcdef.block, file);
+    
+    fprintf(file, "\tleave\n");
     fprintf(file, "\tret\n");
 }
 
@@ -322,7 +316,8 @@ static void gen_return(struct ast *ast, FILE *file)
         fprintf(file, "\tmov\t%s, %%rax\n", regs64[r]);
         regfree(r);
     }
-    
+
+    fprintf(file, "\tleave\n"); 
     fprintf(file, "\tret\n");
 }
 

@@ -206,7 +206,7 @@ static struct type parsetype()
             next();
             if (curr()->type == T_ARROW)
             {
-                expect(T_COLON);
+                expect(T_ARROW);
 
                 *t.func.ret = parsetype();
             }
@@ -246,6 +246,11 @@ static int type_compatible(struct type t1, struct type t2)
     if (isintegral(t1) && isintegral(t2)) return 1;
 
     return 0;
+}
+
+static void add_typedef(const char *name, struct type t)
+{
+
 }
 
 static struct ast *binexpr();
@@ -701,6 +706,23 @@ static struct ast *gotolbl()
     return ast;
 }
 
+static struct ast *typedef_statement()
+{
+    expect(T_TYPEDEF);
+
+    const char *name = curr()->v.sval;
+    
+    expect(T_IDENT);
+    expect(T_EQ);
+
+    struct type type = parsetype();
+
+    add_typedef(name, type);
+
+    expect(T_SEMI);
+    return NULL;
+}
+
 static struct ast *statement()
 {
     struct ast *ast;
@@ -729,6 +751,8 @@ static struct ast *statement()
         ast = label();
     else if (curr()->type == T_GOTO)
         ast = gotolbl();
+    else if (curr()->type == T_TYPEDEF)
+        ast = typedef_statement();
     else
         ast = binexpr(0);
     

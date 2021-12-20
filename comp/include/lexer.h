@@ -29,7 +29,7 @@ enum TOKTYPE
 
     T_ASM,
 
-    T_RETURN, T_WHILE, T_IF, T_ELSE, T_FOR, T_FUNC, T_VAR, T_SIZEOF, T_GOTO, T_LABEL
+    T_RETURN, T_WHILE, T_IF, T_ELSE, T_FOR, T_FUNC, T_VAR, T_SIZEOF, T_GOTO, T_LABEL, T_TYPEDEF
 };
 
 // Type from 'enum TOKTYPE' and string or integer value
