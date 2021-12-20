@@ -12,6 +12,7 @@ struct parser
     struct token *toks;
     size_t i;
     struct symtable *currscope;
+    struct ast      *currfunc;
 };
 
 static struct parser s_parser;
@@ -573,9 +574,13 @@ static struct ast *funcdecl()
 
     if (curr()->type == T_LBRACE)
     {
+        s_parser.currfunc = ast;
+        
         next();
         ast->funcdef.block = block(SYMTAB_FUNC);
         expect(T_RBRACE);
+    
+        s_parser.currfunc = NULL;
     }
     else
     {
@@ -610,9 +615,21 @@ static struct ast *return_statement()
 {
     next();
     struct ast *ast = mkast(A_RETURN);
+    ast->ret.func   = s_parser.currfunc;
     
     if (curr()->type != T_SEMI)
+    {
+        struct sym *sym = sym_lookup(s_parser.currscope, ast->ret.func->funcdef.name);
+        struct type t = *sym->type.func.ret;
+
+        if (t.name == TYPE_VOID && !t.ptr)
+            error("Returning value from void function.\n");
+        
         ast->ret.val = binexpr(0);
+
+        if (!type_compatible(ast->ret.val->vtype, t))
+            error("Incompatible return type in function '%s'.\n", sym->name);
+    }
 
     return ast;
 }

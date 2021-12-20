@@ -78,6 +78,7 @@ struct ast
         {
             char *name;
             struct ast *block;
+            int endlbl;
         } funcdef;
 
         struct
@@ -107,6 +108,7 @@ struct ast
         struct
         {
             struct ast *val;
+            struct ast *func;
         } ret;
 
         struct

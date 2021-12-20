@@ -267,16 +267,24 @@ static void gen_block(struct ast *ast, FILE *file)
 
 static void gen_funcdef(struct ast *ast, FILE *file)
 {
+    ast->funcdef.endlbl = label();
+
     fprintf(file, "\t.global %s\n", ast->funcdef.name); // TODO: storage class
     fprintf(file, "%s:\n", ast->funcdef.name);
 
-    fprintf(file, "\tpush\t%%rbp\n");
-    fprintf(file, "\tmov\t%%rsp, %%rbp\n");
-    fprintf(file, "\tsub\t$%lu, %%rsp\n", ast->funcdef.block->block.symtab.curr_stackoff);
+    if (ast->funcdef.block->block.symtab.curr_stackoff)
+    {
+        fprintf(file, "\tpush\t%%rbp\n");
+        fprintf(file, "\tmov\t%%rsp, %%rbp\n");
+        fprintf(file, "\tsub\t$%lu, %%rsp\n", ast->funcdef.block->block.symtab.curr_stackoff);
+    }
 
     gen_block(ast->funcdef.block, file);
+    fprintf(file, ".L%d:\n", ast->funcdef.endlbl);
+
+    if (ast->funcdef.block->block.symtab.curr_stackoff)
+        fprintf(file, "\tleave\n");
     
-    fprintf(file, "\tleave\n");
     fprintf(file, "\tret\n");
 }
 
@@ -317,8 +325,7 @@ static void gen_return(struct ast *ast, FILE *file)
         regfree(r);
     }
 
-    fprintf(file, "\tleave\n"); 
-    fprintf(file, "\tret\n");
+    fprintf(file, "\tjmp .L%d\n", ast->ret.func->funcdef.endlbl);
 }
 
 static void gen_ifelse(struct ast *ast, FILE *file)
