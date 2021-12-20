@@ -79,6 +79,7 @@ static const char *tokstrs[] =
     [T_COMMA]   = ",",
     [T_AMP]     = "&",
     [T_COLON]   = ":",
+    [T_ARROW]   = "->",
     [T_IDENT]   = "identifer",
     [T_EQ]      = "=",
     [T_EQEQ]    = "==",
@@ -203,9 +204,12 @@ static struct type parsetype()
             }
 
             next();
-            expect(T_COLON);
+            if (curr()->type == T_ARROW)
+            {
+                expect(T_COLON);
 
-            *t.func.ret = parsetype();
+                *t.func.ret = parsetype();
+            }
             goto array;
         }
         default:
@@ -553,7 +557,7 @@ static struct ast *funcdecl()
     
     expect(T_RPAREN);
 
-    if (curr()->type == T_COLON)
+    if (curr()->type == T_ARROW)
     {
         next();
         *sym.type.func.ret = parsetype();

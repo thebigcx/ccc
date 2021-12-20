@@ -153,12 +153,12 @@ int tokenize(const char *str, struct token **toks)
             
             case '-':
             {
-                if (*(++str) == '-')
+                switch (*(++str))
                 {
-                    pushnv(T_DEC, toks, &i);
-                    str++;
+                    case '-': pushnv(T_DEC, toks, &i); str++; break;
+                    case '>': pushnv(T_ARROW, toks, &i); str++; break;
+                    default:  pushnv(T_MINUS, toks, &i);
                 }
-                else pushnv(T_MINUS, toks, &i);
                 continue;
             }
 

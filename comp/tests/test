@@ -1,15 +1,32 @@
-fn function()
+fn function() -> int32
 {
-
+    return 0;
 }
 
-fn main(argc: int32, argv: int8**)
+/*
+
+Hello
+
+/* Hello */
+
+*/
+
+/*fn main(argc: int32, argv: int8**)
 {
-    var x: fn* (): int32;
+    var x: fn* ();
+
+    (*x)(int32);
 
     x = &function;
     function();
     x();
 
+    /*
+    dfasdsada
+    */
+
     //x();
-}
+
+    var x: int[4];
+    int x[4];
+}*/
