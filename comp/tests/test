@@ -9,7 +9,7 @@ fn function() -> isize
 
 typedef Callback = fn* () -> int32;
 
-fn main(argc: int32, argv: int8**)
+fn public main(argc: int32, argv: int8**)
 {
     var x = &function;
     

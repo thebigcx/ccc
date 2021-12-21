@@ -269,7 +269,9 @@ static void gen_funcdef(struct ast *ast, FILE *file)
 {
     ast->funcdef.endlbl = label();
 
-    fprintf(file, "\t.global %s\n", ast->funcdef.name); // TODO: storage class
+    if (sym_lookup(s_currscope, ast->funcdef.name)->attr & SYM_PUBLIC)
+        fprintf(file, "\t.global %s\n", ast->funcdef.name);
+    
     fprintf(file, "%s:\n", ast->funcdef.name);
 
     if (ast->funcdef.block->block.symtab.curr_stackoff)
@@ -285,7 +287,7 @@ static void gen_funcdef(struct ast *ast, FILE *file)
     if (ast->funcdef.block->block.symtab.curr_stackoff)
         fprintf(file, "\tleave\n");
     
-    fprintf(file, "\tret\n");
+    fprintf(file, "\tret\n\n");
 }
 
 static void gen_inlineasm(struct ast *ast, FILE *file)

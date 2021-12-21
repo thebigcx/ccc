@@ -5,43 +5,18 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define SYM_LOCAL  (0b0001)
-#define SYM_GLOBAL (0b0010)
-#define SYM_STATIC (0b0100)
-#define SYM_EXTERN (0b1000)
-//#define SYM_VAR    (0b010000)
-//#define SYM_FUNC   (0b100000)
+// Variables
+#define SYM_LOCAL   (0b000001)
+#define SYM_GLOBAL  (0b000010)
+#define SYM_STATIC  (0b000100)
+
+// Both
+#define SYM_EXTERN  (0b001000)
+
+// Functions
+#define SYM_PUBLIC  (0b010000)
 
 struct ast;
-
-/*
-
-#define SYM_STATIC (0b0001)
-#define SYM_EXTERN (0b0010)
-#define SYM_LOCAL  (0b0100)
-#define SYM_GLOBAL (0b1000)
-
-#define SYM_VAR  1
-#define SYM_FUNC 2
-
-struct sym
-{
-    int type, attr;
-    char *name;
-
-    struct
-    {
-        struct type type;
-        size_t stackoff;
-    } var;
-
-    struct
-    {
-        struct type ret;
-        struct type params[6];
-    } func;
-}
-*/
 
 struct sym
 {

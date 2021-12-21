@@ -548,6 +548,12 @@ static struct ast *funcdecl()
     sym.type.name = TYPE_FUNC;
     sym.type.func.ret = calloc(1, sizeof(struct type));
 
+    if (curr()->type == T_PUBLIC)
+    {
+        sym.attr |= SYM_PUBLIC;
+        next();
+    }
+
     if (curr()->type == T_EXTERN)
     {
         sym.attr |= SYM_EXTERN;

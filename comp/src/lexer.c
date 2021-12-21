@@ -43,7 +43,8 @@ static struct keyword keywords[] =
     { "goto",    T_GOTO    },
     { "label",   T_LABEL   },
     { "typedef", T_TYPEDEF },
-    { "extern",  T_EXTERN  }
+    { "extern",  T_EXTERN  },
+    { "public",  T_PUBLIC  }
 };
 
 // Tests whether 'c' is a valid character in an identifier - letters, numbers, or '_'
