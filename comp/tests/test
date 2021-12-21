@@ -1,15 +1,10 @@
-typedef isize = int8;
-
-fn extern puts();
-
-fn function() -> isize
-{
-    return 0;
-}
-
-typedef Callback = fn* () -> int32;
-
 struct Structure
+{
+    x: int32,
+    y: int32
+};
+
+struct Structure2
 {
     x: int32,
     y: int32
@@ -17,14 +12,9 @@ struct Structure
 
 fn public main(argc: int32, argv: int8**)
 {
-    var x = &function;
+    var x: Structure2;
 
-    var y: Structure;
+    var y = 10;
 
-    function();
-    x();
-
-    var y: int8 = 10;
-
-    var x: int32[4];
+    x.y = y;
 }

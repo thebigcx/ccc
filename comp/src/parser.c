@@ -89,6 +89,7 @@ static const char *tokstrs[] =
     [T_COMMA]   = ",",
     [T_AMP]     = "&",
     [T_COLON]   = ":",
+    [T_DOT]     = ".",
     [T_ARROW]   = "->",
     [T_IDENT]   = "identifer",
     [T_EQ]      = "=",
@@ -352,6 +353,54 @@ static struct ast *pre()
     }
 }
 
+static struct ast *memaccess(struct ast *ast)
+{
+    if (ast->vtype.name != TYPE_STRUCT)
+        error("Member access of non-struct type.\n");
+
+    next();
+    const char *name = curr()->v.sval;
+    expect(T_IDENT);
+
+    struct structmem *member = NULL;
+    for (unsigned i = 0; i < ast->vtype.struc.memcnt; i++)
+    {
+        if (!strcmp(name, ast->vtype.struc.members[i].name))
+        {
+            member = &ast->vtype.struc.members[i];
+            break;
+        }
+    }
+
+    if (!member)
+        error("Struct does not contain member '%s'\n", name);
+
+    struct ast *addrof  = mkast(A_UNARY);
+    addrof->vtype       = mktype(TYPE_UINT64, 0, 0);
+    addrof->unary.op    = OP_ADDROF;
+    addrof->unary.val   = ast;
+
+    struct ast *offset  = mkast(A_INTLIT);
+    offset->vtype       = addrof->vtype;
+    offset->intlit.ival = member->offset;
+
+    struct ast *add     = mkast(A_BINOP);
+    add->vtype          = offset->vtype;
+    add->binop.op       = OP_PLUS;
+    add->binop.lhs      = addrof;
+    add->binop.rhs      = offset;
+
+    struct ast *deref   = mkast(A_UNARY);
+    deref->vtype        = member->type;
+    deref->unary.op     = OP_DEREF;
+    deref->unary.val    = add;
+
+    if (curr()->type == T_DOT)
+        return memaccess(deref);
+
+    return deref;
+}
+
 static struct ast *post(struct ast *ast)
 {
     switch (curr()->type)
@@ -408,6 +457,7 @@ static struct ast *post(struct ast *ast)
 
             return call;
         }
+        case T_DOT: return memaccess(ast);
         default: return ast;
     }
 }

@@ -13,6 +13,7 @@ enum TOKTYPE
     T_COMMA,
     T_AMP,
     T_COLON,
+    T_DOT,
     T_ARROW,
 
     T_IDENT,
