@@ -1,5 +1,6 @@
 #include <parser.h>
 #include <lexer.h>
+#include <asm.h>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -668,6 +669,47 @@ static struct ast *vardecl()
     return ast;
 }
 
+static struct ast *struct_declaration()
+{
+    struct type struc = mktype(TYPE_STRUCT, 0, 0);
+
+    expect(T_STRUCT);
+    const char *name = curr()->v.sval;
+    expect(T_IDENT);
+    expect(T_LBRACE);
+
+    size_t offset = 0;
+    while (curr()->type != T_RBRACE)
+    {
+        const char *memname = curr()->v.sval;
+        expect(T_IDENT);
+        
+        expect(T_COLON);
+        struct type type = parsetype();
+
+        struc.struc.members = realloc(struc.struc.members, (struc.struc.memcnt + 1) * sizeof(struct structmem));
+        struc.struc.members[struc.struc.memcnt++] = (struct structmem)
+        {
+            .name = strdup(memname),
+            .type = type,
+            .offset = offset
+        };
+
+        offset += asm_sizeof(type);
+
+        if (curr()->type != T_RBRACE)
+            expect(T_COMMA);
+    }
+
+    struc.struc.size = offset;
+
+    expect(T_RBRACE);
+    expect(T_SEMI);
+
+    add_typedef(name, struc);
+    return NULL;
+}
+
 static struct ast *return_statement()
 {
     next();
@@ -827,6 +869,8 @@ static struct ast *statement()
         ast = gotolbl();
     else if (curr()->type == T_TYPEDEF)
         ast = typedef_statement();
+    else if (curr()->type == T_STRUCT)
+        ast = struct_declaration();
     else
         ast = binexpr(0);
     

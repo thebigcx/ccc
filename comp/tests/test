@@ -9,10 +9,18 @@ fn function() -> isize
 
 typedef Callback = fn* () -> int32;
 
+struct Structure
+{
+    x: int32,
+    y: int32
+};
+
 fn public main(argc: int32, argv: int8**)
 {
     var x = &function;
-    
+
+    var y: Structure;
+
     function();
     x();
 

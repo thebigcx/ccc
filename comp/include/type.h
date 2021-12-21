@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 enum TYPENAME
 {
     TYPE_INT8, TYPE_INT16, TYPE_INT32, TYPE_INT64,
@@ -8,6 +10,8 @@ enum TYPENAME
 
     TYPE_FUNC // Special
 };
+
+struct structmem;
 
 struct type
 {
@@ -19,4 +23,19 @@ struct type
         struct type *params[6];
         unsigned int paramcnt;
     } func;
+
+    struct
+    {
+        struct structmem *members;
+        unsigned int memcnt;
+        size_t size;
+    } struc;
+};
+
+// Struct member
+struct structmem
+{
+    char *name;
+    struct type type;
+    size_t offset;
 };
