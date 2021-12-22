@@ -634,8 +634,11 @@ static struct ast *binexpr(int ptp)
 
         expr->vtype = lhs->vtype; // TODO: weak type conversion
 
-        lhs->lvalue = 1;
-        rhs->lvalue = 0;
+        if (op == OP_ASSIGN)
+        {
+            lhs->lvalue = 1;
+            rhs->lvalue = 0;
+        }
 
         lhs = expr;
         if (termin()) return lhs;
