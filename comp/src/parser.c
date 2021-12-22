@@ -384,7 +384,7 @@ static struct ast *memaccess(struct ast *ast)
     struct structmem *member;
     while (curr()->type == T_DOT || curr()->type == T_ARROW)
     {
-        if (structype.name != TYPE_STRUCT)
+        if (structype.name != TYPE_STRUCT && structype.name != TYPE_UNION)
             error("Member access of non-struct type.\n");
 
         ptr = curr()->type == T_ARROW;
@@ -399,11 +399,11 @@ static struct ast *memaccess(struct ast *ast)
         expect(T_IDENT);
 
         member = NULL;
-        for (unsigned i = 0; i < ast->vtype.struc.memcnt; i++)
+        for (unsigned i = 0; i < structype.struc.memcnt; i++)
         {
-            if (!strcmp(name, ast->vtype.struc.members[i].name))
+            if (!strcmp(name, structype.struc.members[i].name))
             {
-                member = &ast->vtype.struc.members[i];
+                member = &structype.struc.members[i];
                 break;
             }
         }
@@ -641,6 +641,8 @@ static struct ast *vardecl();
 
 static struct ast *funcdecl()
 {
+    expect(T_FUNC);
+
     struct sym sym = { 0 };
     sym.type.name = TYPE_FUNC;
     sym.type.func.ret = calloc(1, sizeof(struct type));
@@ -765,15 +767,9 @@ static struct ast *vardecl()
     return ast;
 }
 
-static struct ast *struct_declaration()
+static struct type parse_struct()
 {
     struct type struc = mktype(TYPE_STRUCT, 0, 0);
-
-    expect(T_STRUCT);
-    const char *name = curr()->v.sval;
-    expect(T_IDENT);
-    expect(T_LBRACE);
-
     size_t offset = 0;
     while (curr()->type != T_RBRACE)
     {
@@ -798,11 +794,58 @@ static struct ast *struct_declaration()
     }
 
     struc.struc.size = offset;
+    return struc;
+}
+
+static struct type parse_union()
+{
+    struct type uni = mktype(TYPE_UNION, 0, 0);
+    size_t size = 0;
+
+    while (curr()->type != T_RBRACE)
+    {
+        const char *memname = curr()->v.sval;
+        expect(T_IDENT);
+        
+        expect(T_COLON);
+        struct type type = parsetype();
+
+        uni.struc.members = realloc(uni.struc.members, (uni.struc.memcnt + 1) * sizeof(struct structmem));
+        uni.struc.members[uni.struc.memcnt++] = (struct structmem)
+        {
+            .name = strdup(memname),
+            .type = type,
+            .offset = 0
+        };
+
+        if (asm_sizeof(type) > size) size = asm_sizeof(type);
+
+        if (curr()->type != T_RBRACE)
+            expect(T_COMMA);
+    }
+
+    uni.struc.size = size;
+    return uni;
+}
+
+static struct ast *comp_declaration()
+{
+    struct type type;
+    
+    int isunion = curr()->type == T_UNION;
+    next();
+
+    const char *name = curr()->v.sval;
+    expect(T_IDENT);
+    expect(T_LBRACE);
+
+    if (isunion) type = parse_union();
+    else type = parse_struct();
 
     expect(T_RBRACE);
     expect(T_SEMI);
 
-    add_typedef(name, struc);
+    add_typedef(name, type);
     return NULL;
 }
 
@@ -937,40 +980,22 @@ static struct ast *typedef_statement()
 
 static struct ast *statement()
 {
-    struct ast *ast;
-
-    if (curr()->type == T_ASM)
-        ast = inlineasm();
-    else if (curr()->type == T_FUNC)
+    switch (curr()->type)
     {
-        next();
-        ast = funcdecl();
+        case T_ASM:     return inlineasm();
+        case T_FUNC:    return funcdecl();
+        case T_VAR: next(); return vardecl(); // TODO: fix this
+        case T_RETURN:  return return_statement();
+        case T_IF:      return if_statement();
+        case T_WHILE:   return while_statement();
+        case T_FOR:     return for_statement();
+        case T_LABEL:   return label();
+        case T_GOTO:    return gotolbl();
+        case T_TYPEDEF: return typedef_statement();
+        case T_STRUCT:
+        case T_UNION:   return comp_declaration();
+        default:        return binexpr(0);
     }
-    else if (curr()->type == T_VAR)
-    {
-        next();
-        ast = vardecl();
-    }
-    else if (curr()->type == T_RETURN)
-        ast = return_statement();
-    else if (curr()->type == T_IF)
-        ast = if_statement();
-    else if (curr()->type == T_WHILE)
-        ast = while_statement();
-    else if (curr()->type == T_FOR)
-        ast = for_statement();
-    else if (curr()->type == T_LABEL)
-        ast = label();
-    else if (curr()->type == T_GOTO)
-        ast = gotolbl();
-    else if (curr()->type == T_TYPEDEF)
-        ast = typedef_statement();
-    else if (curr()->type == T_STRUCT)
-        ast = struct_declaration();
-    else
-        ast = binexpr(0);
-    
-    return ast;
 }
 
 static struct ast *block(int type)

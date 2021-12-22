@@ -6,20 +6,18 @@ struct Structure
     y: int32
 };
 
-struct Structure2
+union Union
 {
-    x: int32,
-    y: Structure
+    x: int8,
+    y: int32,
+    z: Structure
 };
 
 fn public main(argc: int32, argv: int8**)
 {
-    var x: Structure2;
-    var y = &x;
+    var x: Union;
 
-    y->y.x = 10;
-
-    y = y = y;
-
-    var z = malloc(sizeof Structure);
+    x.x = 10;
+    x.y = 32;
+    x.z.x = 100;
 }
