@@ -468,83 +468,40 @@ int gen_pre(struct ast *ast, FILE *file)
         return r1;
     }
 }
-/*
-int gen_preinc(struct ast *ast, FILE *file)
-{
-    int r1 = gen_code(ast->incdec.val, file);
-    if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
-    {
-        int r2 = gen_code(ast->incdec.val->unary.val, file);
-        
-        fprintf(file, "\tinc\t%s\n", regs64[r1]);
-        gen_storederef(ast, r1, r2, file);
-        
-        regfree(r2);
-        return r1;
-    }
-    else
-    {
-        fprintf(file, "\tinc\t%s\n", regs64[r1]);
-        struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
-        gen_store(sym, r1, file);
-        return r1;
-    }
-}
-*/
+
 int gen_post(struct ast *ast, FILE *file)
 {
     const char *inst = ast->type == A_POSTINC ? "inc" : "dec";
 
     int r1 = gen_code(ast->incdec.val, file);
-    int r2 = regalloc();
-
-    fprintf(file, "\tmov\t%s, %s\n", regs64[r1], regs64[r2]);
-    fprintf(file, "\t%s\t%s\n", inst, regs64[r2]);
-    
-    struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
-    gen_store(sym, r2, file);
-
-    regfree(r2);
-    return r1;
-}
-/*
-int gen_predec(struct ast *ast, FILE *file)
-{
-    int r1 = gen_code(ast->incdec.val, file);
     if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
     {
         int r2 = gen_code(ast->incdec.val->unary.val, file);
-        
-        fprintf(file, "\tdec\t%s\n", regs64[r1]);
-        gen_storederef(ast, r1, r2, file);
-        
+        int r3 = regalloc();
+
+        fprintf(file, "\tmov\t%s, %s\n", regs64[r1], regs64[r3]);
+        fprintf(file, "\t%s\t%s\n", inst, regs64[r3]);
+
+        gen_storederef(ast, r3, r2, file);
         regfree(r2);
+        regfree(r3);
         return r1;
     }
     else
     {
-        fprintf(file, "\tdec\t%s\n", regs64[r1]);
+        int r2 = regalloc();
+
+        fprintf(file, "\tmov\t%s, %s\n", regs64[r1], regs64[r2]);
+        fprintf(file, "\t%s\t%s\n", inst, regs64[r2]);
+        
         struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
-        gen_store(sym, r1, file);
+        gen_store(sym, r2, file);
+        
+        regfree(r2);
         return r1;
     }
 }
 
-int gen_postdec(struct ast *ast, FILE *file)
-{
-    int r1 = gen_code(ast->incdec.val, file);
-    int r2 = regalloc();
-
-    fprintf(file, "\tmov\t%s, %s\n", regs64[r1], regs64[r2]);
-    fprintf(file, "\tdec\t%s\n", regs64[r2]);
-    
-    struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
-    gen_store(sym, r2, file);
-
-    regfree(r2);
-    return r1;
-}
-*/
 int gen_scale(struct ast *ast, FILE *file)
 {
     int r = gen_code(ast->scale.val, file);
