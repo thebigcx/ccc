@@ -252,51 +252,69 @@ static int gen_binop(struct ast *ast, FILE *file)
     return r2;
 }
 
+/*
+
+var x: int[4];
+
+var y = &x[1];
+
+x[1]: *(&x + 1)
+
+*/
+
+static void gen_lognot(int r, FILE *file)
+{
+    fprintf(file, "\tnot\t%s\n", regs64[r]);
+    fprintf(file, "\tand\t$1, %s\n", regs64[r]);
+}
+
+static void gen_bitnot(int r, FILE *file)
+{
+    fprintf(file, "\tnot\t%s\n", regs64[r]);
+}
+
+static void gen_unaryminus(int r, FILE *file)
+{
+    fprintf(file, "\tneg\t%s\n", regs64[r]);
+}
+
+static int gen_deref(int r, int lvalue, FILE *file)
+{
+    if (lvalue)
+        return r;
+    else
+    {
+        int r2 = regalloc();
+        fprintf(file, "\tmov\t(%s), %s\n", regs64[r], regs64[r2]);
+        regfree(r);
+        return r2;
+    }
+}
+
+// TODO: this doesn't work for dereferenced values e.g. &x[1]
+static int gen_addrof(struct ast *ast, FILE *file)
+{
+    int r = regalloc();
+    asm_addrof(sym_lookup(s_currscope, ast->unary.val->ident.name), r, file);
+    return r;
+}
+
 static int gen_unary(struct ast *ast, FILE *file)
 {
+    if (ast->unary.op == OP_ADDROF)
+        return gen_addrof(ast, file);
+
+    int r = gen_code(ast->unary.val, file);
+
     switch (ast->unary.op)
     {
-        case OP_ADDROF:
-        {
-            int r = regalloc();
-            asm_addrof(sym_lookup(s_currscope, ast->unary.val->ident.name), r, file);
-            return r;
-        }
-        case OP_DEREF:
-        {
-            int r1 = gen_code(ast->unary.val, file);
-            if (ast->lvalue)
-                return r1;
-            else
-            {
-                int r2 = regalloc();
-                fprintf(file, "\tmov\t(%s), %s\n", regs64[r1], regs64[r2]);
-                regfree(r1);
-                return r2;
-            }
-        }
-        case OP_LOGNOT:
-        {
-            int r = gen_code(ast->unary.val, file);
-            fprintf(file, "\tnot\t%s\n", regs64[r]);
-            fprintf(file, "\tand\t$1, %s\n", regs64[r]);
-            return r;
-        }
-        case OP_BITNOT:
-        {
-            int r = gen_code(ast->unary.val, file);
-            fprintf(file, "\tnot\t%s\n", regs64[r]);
-            return r;
-        }
-        case OP_MINUS:
-        {
-            int r = gen_code(ast->unary.val, file);
-            fprintf(file, "\tneg\t%s\n", regs64[r]);
-            return r;
-        }
+        case OP_DEREF:  r = gen_deref(r, ast->lvalue, file); break;
+        case OP_LOGNOT: gen_lognot(r, file); break;
+        case OP_BITNOT: gen_bitnot(r, file); break;
+        case OP_MINUS:  gen_unaryminus(r, file); break;
     }
 
-    return NOREG;
+    return r;
 }
 
 static int gen_intlit(struct ast *ast, FILE *file)

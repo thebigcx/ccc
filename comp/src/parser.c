@@ -336,11 +336,17 @@ static struct ast *pre()
     switch (curr()->type)
     {
         case T_AMP: // TODO: type checking: must be an lvalue
+        {
             next();
-            ast = mkunary(OP_ADDROF, pre());
+            struct ast *val = pre();
+            if (val->type == A_UNARY && val->unary.op == OP_DEREF) return val->unary.val;
+            
+            ast = mkunary(OP_ADDROF, val);
             ast->vtype = ast->unary.val->vtype;
             ast->vtype.ptr++;
             return ast;
+        }
+
         case T_STAR:
             next();
             ast = mkunary(OP_DEREF, pre());

@@ -12,4 +12,8 @@ fn public main(argc: int32, argv: int8**)
     var w = ~z;
 
     printf("%lx\n", w);
+
+    var arr: int32[2];
+
+    var ptr = &arr[1];
 }
