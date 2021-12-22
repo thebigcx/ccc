@@ -169,6 +169,8 @@ static int operator(int tok)
         case T_ANDEQ:   return OP_BITANDEQ;
         case T_OREQ:    return OP_BITOREQ;
         case T_XOREQ:   return OP_BITXOREQ;
+        case T_SHLEQ:   return OP_SHLEQ;
+        case T_SHREQ:   return OP_SHREQ;
         case T_EQ:      return OP_ASSIGN;
         case T_EQEQ:    return OP_EQUAL;
         case T_NEQ:     return OP_NEQUAL;
@@ -595,7 +597,7 @@ static struct ast *primary()
 
 static int rightassoc(int op)
 {
-    return op == OP_ASSIGN || op == OP_PLUSEQ || op == OP_MINUSEQ || op == OP_MULEQ || op == OP_DIVEQ;
+    return op >= OP_ASSIGN && op <= OP_BITOREQ;
 }
 
 static int opprec[] =

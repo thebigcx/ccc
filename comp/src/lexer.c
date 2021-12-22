@@ -248,7 +248,15 @@ int tokenize(const char *str, struct token **toks)
                 switch (*(++str))
                 {
                     case '=': pushnv(T_GTE, toks, &i); str++; break;
-                    case '>': pushnv(T_SHR, toks, &i); str++; break;
+                    case '>':
+                        if (*(++str) == '=')
+                        {
+                            pushnv(T_SHREQ, toks, &i);
+                            str++;
+                        }
+                        else pushnv(T_SHR, toks, &i);
+                        break;
+
                     default: pushnv(T_GT, toks, &i);
                 }
                 continue;
@@ -257,7 +265,15 @@ int tokenize(const char *str, struct token **toks)
                 switch (*(++str))
                 {
                     case '=': pushnv(T_LTE, toks, &i); str++; break;
-                    case '<': pushnv(T_SHL, toks, &i); str++; break;
+                    case '<':
+                        if (*(++str) == '=')
+                        {
+                            pushnv(T_SHLEQ, toks, &i);
+                            str++;
+                        }
+                        else pushnv(T_SHL, toks, &i);
+                        break;
+                    
                     default: pushnv(T_LT, toks, &i); break;
                 }
                 continue;

@@ -229,6 +229,8 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_BITANDEQ:
         case OP_BITOREQ:
         case OP_BITXOREQ:
+        case OP_SHLEQ:
+        case OP_SHREQ:
         {
             switch (ast->binop.op)
             {
@@ -236,11 +238,13 @@ static int gen_binop(struct ast *ast, FILE *file)
                 case OP_MULEQ:    r2 = gen_mul(r1, r2, file); break;
                 case OP_DIVEQ:    r2 = gen_div(r1, r2, file); break;
                 case OP_MINUSEQ:  r2 = gen_sub(r1, r2, file); break;
-                case OP_BITANDEQ: r2 = gen_bitand(r2, r1, file); break;
-                case OP_BITOREQ:  r2 = gen_bitor(r2, r1, file); break;
-                case OP_BITXOREQ: r2 = gen_bitxor(r2, r1, file); break;
+                case OP_BITANDEQ: r2 = gen_bitand(r1, r2, file); break;
+                case OP_BITOREQ:  r2 = gen_bitor(r1, r2, file); break;
+                case OP_BITXOREQ: r2 = gen_bitxor(r1, r2, file); break;
+                case OP_SHLEQ:    r2 = gen_shl(r1, r2, file); break;
+                case OP_SHREQ:    r2 = gen_shr(r1, r2, file); break;
             }
-
+            
             if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
             {
                 gen_storederef(ast, r2, r1, file);

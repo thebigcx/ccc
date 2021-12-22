@@ -15,6 +15,8 @@ enum TOKTYPE
     T_XOREQ,
     T_ANDEQ,
     T_OREQ,
+    T_SHLEQ,
+    T_SHREQ,
     T_SHL,
     T_SHR,
     T_INTLIT, T_STRLIT,
