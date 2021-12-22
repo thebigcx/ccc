@@ -104,7 +104,7 @@ static const char *tokstrs[] =
     [T_LOR]     = "||",
     [T_BITOR]   = "|",
     [T_BITXOR]  = "^",
-    [T_COMP]    = "~",
+    [T_BITNOT]  = "~",
     [T_TERNARY] = "?",
     [T_INC]     = "++",
     [T_DEC]     = "--",
@@ -177,6 +177,9 @@ static int operator(int tok)
         case T_LOR:     return OP_LOR;
         case T_SHL:     return OP_SHL;
         case T_SHR:     return OP_SHR;
+        case T_AMP:     return OP_BITAND;
+        case T_BITOR:   return OP_BITOR;
+        case T_BITXOR:  return OP_BITXOR;
     }
     return -1;
 }
@@ -349,6 +352,11 @@ static struct ast *pre()
         case T_NOT:
             next();
             ast = mkunary(OP_LOGNOT, pre());
+            ast->vtype = ast->unary.val->vtype;
+            return ast;
+        case T_BITNOT:
+            next();
+            ast = mkunary(OP_BITNOT, pre());
             ast->vtype = ast->unary.val->vtype;
             return ast;
         case T_MINUS:

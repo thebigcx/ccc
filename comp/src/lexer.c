@@ -185,6 +185,7 @@ int tokenize(const char *str, struct token **toks)
             case '}': pushnv(T_RBRACE, toks, &i); str++; continue;
             case ',': pushnv(T_COMMA,  toks, &i); str++; continue;
             case ':': pushnv(T_COLON,  toks, &i); str++; continue;
+            case '~': pushnv(T_BITNOT, toks, &i); str++; continue;
 
             case '.':
             {
@@ -287,6 +288,15 @@ int tokenize(const char *str, struct token **toks)
                     str++;
                 }
                 else pushnv(T_BITOR, toks, &i);
+                continue;
+
+            case '^':
+                if (*(++str) == '=')
+                {
+                    pushnv(T_XOREQ, toks, &i);
+                    str++;
+                }
+                else pushnv(T_BITXOR, toks, &i);
                 continue;
         }
 

@@ -159,6 +159,21 @@ static void gen_shr(int r1, int r2, FILE *file)
     fprintf(file, "\tshr\t%%cl, %s\n", regs64[r2]);
 }
 
+static void gen_bitand(int r1, int r2, FILE *file)
+{
+    fprintf(file, "\tand\t%s, %s\n", regs64[r1], regs64[r2]);
+}
+
+static void gen_bitor(int r1, int r2, FILE *file)
+{
+    fprintf(file, "\tor\t%s, %s\n", regs64[r1], regs64[r2]);
+}
+
+static void gen_bitxor(int r1, int r2, FILE *file)
+{
+    fprintf(file, "\txor\t%s, %s\n", regs64[r1], regs64[r2]);
+}
+
 static int gen_binop(struct ast *ast, FILE *file)
 {
     // AT&T Syntax: src, dst
@@ -227,6 +242,10 @@ static int gen_binop(struct ast *ast, FILE *file)
             fprintf(file, "\tand\t$1, %s\n", regs64[r2]);
             break;
         }
+
+        case OP_BITAND: gen_bitand(r1, r2, file); break;
+        case OP_BITOR:  gen_bitor(r1, r2, file); break;
+        case OP_BITXOR: gen_bitxor(r1, r2, file); break;
     }
 
     regfree(r1);
@@ -261,6 +280,12 @@ static int gen_unary(struct ast *ast, FILE *file)
             int r = gen_code(ast->unary.val, file);
             fprintf(file, "\tnot\t%s\n", regs64[r]);
             fprintf(file, "\tand\t$1, %s\n", regs64[r]);
+            return r;
+        }
+        case OP_BITNOT:
+        {
+            int r = gen_code(ast->unary.val, file);
+            fprintf(file, "\tnot\t%s\n", regs64[r]);
             return r;
         }
         case OP_MINUS:
