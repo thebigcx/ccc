@@ -258,7 +258,7 @@ int tokenize(const char *str, struct token **toks)
                 {
                     case '=': pushnv(T_LTE, toks, &i); str++; break;
                     case '<': pushnv(T_SHL, toks, &i); str++; break;
-                    default: pushnv(T_LT, toks, &i);
+                    default: pushnv(T_LT, toks, &i); break;
                 }
                 continue;
 
@@ -273,21 +273,21 @@ int tokenize(const char *str, struct token **toks)
                 continue;
 
             case '&':
-                if (*(++str) == '&')
+                switch (*(++str))
                 {
-                    pushnv(T_LAND, toks, &i);
-                    str++;
+                    case '&': pushnv(T_LAND, toks, &i); str++; break;
+                    case '=': pushnv(T_ANDEQ, toks, &i); str++; break;
+                    default: pushnv(T_AMP, toks, &i); break;
                 }
-                else pushnv(T_AMP, toks, &i);
                 continue;
             
             case '|':
-                if (*(++str) == '|')
+                switch (*(++str))
                 {
-                    pushnv(T_LOR, toks, &i);
-                    str++;
+                    case '|': pushnv(T_LOR, toks, &i); str++; break;
+                    case '=': pushnv(T_OREQ, toks, &i); str++; break;
+                    default:  pushnv(T_BITOR, toks, &i); break;
                 }
-                else pushnv(T_BITOR, toks, &i);
                 continue;
 
             case '^':

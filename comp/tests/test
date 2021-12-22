@@ -5,15 +5,9 @@ fn extern printf(int8*, ...);
 
 fn public main(argc: int32, argv: int8**)
 {
-    var x = 10;
-    var y = &x;
-    var z = --(*y);
+    var x = 1;
 
-    var w = ~z;
+    x = 2 << 2;
 
-    printf("%lx\n", w);
-
-    var arr: int32[2];
-
-    var ptr = &arr[1];
+    printf("%lu\n", x);
 }

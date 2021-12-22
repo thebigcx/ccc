@@ -13,6 +13,8 @@ enum TOKTYPE
     T_MULEQ,
     T_DIVEQ,
     T_XOREQ,
+    T_ANDEQ,
+    T_OREQ,
     T_SHL,
     T_SHR,
     T_INTLIT, T_STRLIT,

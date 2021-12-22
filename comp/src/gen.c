@@ -127,67 +127,83 @@ static void gen_storederef(struct ast *ast, int r1, int r2, FILE *file)
     fprintf(file, "\t%s\t%s, (%s)\n", movs[asm_sizeof(ast->vtype)], regs[asm_sizeof(ast->vtype)][r1], regs64[r2]);
 }
 
-static void gen_add(int r1, int r2, FILE *file)
+static int gen_add(int r1, int r2, FILE *file)
 {
-    fprintf(file, "\tadd\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(file, "\tadd\t%s, %s\n", regs64[r2], regs64[r1]);
+    regfree(r2);
+    return r1;
 }
 
-static void gen_sub(int r1, int r2, FILE *file)
+static int gen_sub(int r1, int r2, FILE *file)
 {
-    fprintf(file, "\tsub\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(file, "\tsub\t%s, %s\n", regs64[r2], regs64[r1]);
+    regfree(r2);
+    return r1;
 }
 
-static void gen_mul(int r1, int r2, FILE *file)
+static int gen_mul(int r1, int r2, FILE *file)
 {
     fprintf(file, "\timul\t%s, %s\n", regs64[r1], regs64[r2]);
+    regfree(r2);
+    return r1;
 }
 
-static void gen_div(int r1, int r2, FILE *file)
+static int gen_div(int r1, int r2, FILE *file)
 {
     //fprintf(file, "\tdiv\t%s, %s\n", regs64[r1], regs64[r2]);
 }
 
-static void gen_shl(int r1, int r2, FILE *file)
+static int gen_shl(int r1, int r2, FILE *file)
 {
-    fprintf(file, "\tmovb\t%s, %%cl\n", regs8[r1]);
-    fprintf(file, "\tshl\t%%cl, %s\n", regs64[r2]);
+    fprintf(file, "\tmovb\t%s, %%cl\n", regs8[r2]);
+    fprintf(file, "\tshl\t%%cl, %s\n", regs64[r1]);
+    regfree(r2);
+    return r1;
 }
 
-static void gen_shr(int r1, int r2, FILE *file)
+static int gen_shr(int r1, int r2, FILE *file)
 {
-    fprintf(file, "\tmovb\t%s, %%cl\n", regs8[r1]);
-    fprintf(file, "\tshr\t%%cl, %s\n", regs64[r2]);
+    fprintf(file, "\tmovb\t%s, %%cl\n", regs8[r2]);
+    fprintf(file, "\tshr\t%%cl, %s\n", regs64[r1]);
+    regfree(r2);
+    return r1;
 }
 
-static void gen_bitand(int r1, int r2, FILE *file)
+static int gen_bitand(int r1, int r2, FILE *file)
 {
-    fprintf(file, "\tand\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(file, "\tand\t%s, %s\n", regs64[r2], regs64[r1]);
+    regfree(r2);
+    return r1;
 }
 
-static void gen_bitor(int r1, int r2, FILE *file)
+static int gen_bitor(int r1, int r2, FILE *file)
 {
-    fprintf(file, "\tor\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(file, "\tor\t%s, %s\n", regs64[r2], regs64[r1]);
+    regfree(r2);
+    return r1;
 }
 
-static void gen_bitxor(int r1, int r2, FILE *file)
+static int gen_bitxor(int r1, int r2, FILE *file)
 {
-    fprintf(file, "\txor\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(file, "\txor\t%s, %s\n", regs64[r2], regs64[r1]);
+    regfree(r2);
+    return r1;
 }
 
 static int gen_binop(struct ast *ast, FILE *file)
 {
     // AT&T Syntax: src, dst
-    int r1 = gen_code(ast->binop.rhs, file);
-    int r2 = gen_code(ast->binop.lhs, file);
+    int r1 = gen_code(ast->binop.lhs, file);
+    int r2 = gen_code(ast->binop.rhs, file);
 
     switch (ast->binop.op)
     {
-        case OP_PLUS:  gen_add(r1, r2, file); break; 
-        case OP_MUL:   gen_mul(r1, r2, file); break;
-        case OP_DIV:   gen_div(r1, r2, file); break;      
-        case OP_MINUS: gen_sub(r1, r2, file); break;
-        case OP_SHL:   gen_shl(r1, r2, file); break;
-        case OP_SHR:   gen_shr(r1, r2, file); break;
+        case OP_PLUS:  return gen_add(r1, r2, file); 
+        case OP_MUL:   return gen_mul(r1, r2, file);
+        case OP_DIV:   return gen_div(r1, r2, file);      
+        case OP_MINUS: return gen_sub(r1, r2, file);
+        case OP_SHL:   return gen_shl(r1, r2, file);
+        case OP_SHR:   return gen_shr(r1, r2, file);
         
         case OP_EQUAL:
         case OP_NEQUAL:
@@ -210,46 +226,56 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_MINUSEQ:
         case OP_MULEQ:
         case OP_DIVEQ:
+        case OP_BITANDEQ:
+        case OP_BITOREQ:
+        case OP_BITXOREQ:
         {
             switch (ast->binop.op)
             {
-                case OP_PLUSEQ:  gen_add(r1, r2, file); break;
-                case OP_MULEQ:   gen_mul(r1, r2, file); break;
-                case OP_DIVEQ:   gen_div(r1, r2, file); break;
-                case OP_MINUSEQ: gen_sub(r1, r2, file); break;
+                case OP_PLUSEQ:   r2 = gen_add(r1, r2, file); break;
+                case OP_MULEQ:    r2 = gen_mul(r1, r2, file); break;
+                case OP_DIVEQ:    r2 = gen_div(r1, r2, file); break;
+                case OP_MINUSEQ:  r2 = gen_sub(r1, r2, file); break;
+                case OP_BITANDEQ: r2 = gen_bitand(r2, r1, file); break;
+                case OP_BITOREQ:  r2 = gen_bitor(r2, r1, file); break;
+                case OP_BITXOREQ: r2 = gen_bitxor(r2, r1, file); break;
             }
 
             if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
-                gen_storederef(ast, r1, r2, file);
+            {
+                gen_storederef(ast, r2, r1, file);
+                regfree(r1);
+            }
             else
             {
                 struct sym *sym = sym_lookup(s_currscope, ast->binop.lhs->ident.name);
-                gen_store(sym, r1, file);
-                return r1; // r2 is NOREG
+                gen_store(sym, r2, file);
+                return r2; // r2 is NOREG
             }
             
-            break;
+            return r2;
         }
         case OP_LAND:
         {
             fprintf(file, "\tand\t%s, %s\n", regs64[r1], regs64[r2]);
             fprintf(file, "\tand\t$1, %s\n", regs64[r2]);
-            break;
+            regfree(r1);
+            return r2;
         }
         case OP_LOR:
         {
             fprintf(file, "\tor\t%s, %s\n", regs64[r1], regs64[r2]);
             fprintf(file, "\tand\t$1, %s\n", regs64[r2]);
-            break;
+            regfree(r1);
+            return r2;
         }
 
-        case OP_BITAND: gen_bitand(r1, r2, file); break;
-        case OP_BITOR:  gen_bitor(r1, r2, file); break;
-        case OP_BITXOR: gen_bitxor(r1, r2, file); break;
+        case OP_BITAND: return gen_bitand(r1, r2, file);
+        case OP_BITOR:  return gen_bitor(r1, r2, file);
+        case OP_BITXOR: return gen_bitxor(r1, r2, file);
     }
 
-    regfree(r1);
-    return r2;
+    return NOREG;
 }
 
 /*
