@@ -1,26 +1,8 @@
 fn extern malloc(uint64) -> *;
 fn extern puts(int8*) -> int32;
 
-struct Structure
-{
-    x: int32,
-    y: int32
-};
-
-union Union
-{
-    x: int8,
-    y: int32,
-    z: Structure
-};
-
 fn public main(argc: int32, argv: int8**)
 {
-    var x: Union;
-
-    x.x = 10;
-    x.y = 32;
-    x.z.x = 100;
-
-    puts(argv[8]);
+    var x = 10;
+    var y = x--;
 }

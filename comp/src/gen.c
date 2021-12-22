@@ -446,26 +446,59 @@ int gen_cast(struct ast *ast, FILE *file)
 
 int gen_preinc(struct ast *ast, FILE *file)
 {
-    (void)ast; (void)file;
-    return NOREG;
+    int r1 = gen_code(ast->incdec.val, file);
+    /*if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
+    {
+        fprintf(file, "\tinc\t%s\n", regs64[r1]);
+        gen_storederef(ast, r2, r1, file);
+    }
+    else*/
+    {
+        fprintf(file, "\tinc\t%s\n", regs64[r1]);
+        struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
+        gen_store(sym, r1, file);
+        return r1;
+    }
 }
 
 int gen_postinc(struct ast *ast, FILE *file)
 {
-    (void)ast; (void)file;
-    return NOREG;
+    int r1 = gen_code(ast->incdec.val, file);
+    int r2 = regalloc();
+
+    fprintf(file, "\tmov\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(file, "\tinc\t%s\n", regs64[r2]);
+    
+    struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
+    gen_store(sym, r2, file);
+
+    regfree(r2);
+    return r1;
 }
 
 int gen_predec(struct ast *ast, FILE *file)
 {
-    (void)ast; (void)file;
-    return NOREG;
+    int r1 = gen_code(ast->incdec.val, file);
+
+    fprintf(file, "\tdec\t%s\n", regs64[r1]);
+    struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
+    gen_store(sym, r1, file);
+    return r1;
 }
 
 int gen_postdec(struct ast *ast, FILE *file)
 {
-    (void)ast; (void)file;
-    return NOREG;
+    int r1 = gen_code(ast->incdec.val, file);
+    int r2 = regalloc();
+
+    fprintf(file, "\tmov\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(file, "\tdec\t%s\n", regs64[r2]);
+    
+    struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
+    gen_store(sym, r2, file);
+
+    regfree(r2);
+    return r1;
 }
 
 int gen_scale(struct ast *ast, FILE *file)
@@ -493,7 +526,6 @@ int gen_code(struct ast *ast, FILE *file)
         case A_PREDEC:  return gen_predec(ast, file);
         case A_POSTDEC: return gen_postdec(ast, file);
         case A_SCALE:   return gen_scale(ast, file);
-        //case A_ARRACC: return gen_arracc(ast, file);
         case A_FUNCDEF:
             gen_funcdef(ast, file);
             return NOREG;

@@ -352,6 +352,13 @@ static struct ast *pre()
             ast = mkunary(OP_MINUS, pre());
             ast->vtype = ast->unary.val->vtype;
             return ast;
+        case T_INC:
+        case T_DEC:
+            ast = mkast(curr()->type == T_INC ? A_PREINC : A_PREDEC);
+            next();
+            ast->incdec.val = pre();
+            ast->vtype = ast->incdec.val->vtype;
+            return ast;
         default:
             return post(primary());
     }
@@ -506,6 +513,17 @@ static struct ast *post(struct ast *ast)
         }
         case T_DOT:
         case T_ARROW: return memaccess(ast);
+
+        case T_INC:
+        case T_DEC:
+        {
+            struct ast *inc = mkast(curr()->type == T_INC ? A_POSTINC : A_POSTDEC);
+            next();
+            inc->vtype = ast->vtype;
+            inc->incdec.val = ast;
+            return inc;
+        }
+
         default: return ast;
     }
 }
