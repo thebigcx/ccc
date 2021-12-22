@@ -161,27 +161,19 @@ static void gen_shr(int r1, int r2, FILE *file)
 
 static int gen_binop(struct ast *ast, FILE *file)
 {
-    int r1 = gen_code(ast->binop.lhs, file);
-    int r2 = gen_code(ast->binop.rhs, file);
+    // AT&T Syntax: src, dst
+    int r1 = gen_code(ast->binop.rhs, file);
+    int r2 = gen_code(ast->binop.lhs, file);
 
     switch (ast->binop.op)
     {
         case OP_PLUS:  gen_add(r1, r2, file); break; 
         case OP_MUL:   gen_mul(r1, r2, file); break;
         case OP_DIV:   gen_div(r1, r2, file); break;      
-        case OP_MINUS:
-            gen_sub(r2, r1, file);
-            regfree(r2);
-            return r1;
-        case OP_SHL:
-            gen_shl(r2, r1, file);
-            regfree(r2);
-            return r1;
-        case OP_SHR:
-            gen_shr(r2, r1, file);
-            regfree(r2);
-            return r1;
-
+        case OP_MINUS: gen_sub(r1, r2, file); break;
+        case OP_SHL:   gen_shl(r1, r2, file); break;
+        case OP_SHR:   gen_shr(r1, r2, file); break;
+        
         case OP_EQUAL:
         case OP_NEQUAL:
         case OP_GT:
@@ -190,7 +182,7 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_LTE:
         {
             int r = regalloc();
-            fprintf(file, "\tcmp\t%s, %s\n", regs64[r2], regs64[r1]);
+            fprintf(file, "\tcmp\t%s, %s\n", regs64[r1], regs64[r2]);
             fprintf(file, "\t%s\t%%al\n", set_instructions[ast->binop.op]);
             fprintf(file, "\tmovzx\t%%al, %s\n", regs64[r]);
             
@@ -209,21 +201,16 @@ static int gen_binop(struct ast *ast, FILE *file)
                 case OP_PLUSEQ:  gen_add(r1, r2, file); break;
                 case OP_MULEQ:   gen_mul(r1, r2, file); break;
                 case OP_DIVEQ:   gen_div(r1, r2, file); break;
-                case OP_MINUSEQ:
-                    gen_sub(r2, r1, file);
-                    int r = r2;
-                    r2 = r1;
-                    r1 = r;
-                    break;
+                case OP_MINUSEQ: gen_sub(r1, r2, file); break;
             }
 
             if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
-                gen_storederef(ast, r2, r1, file);
+                gen_storederef(ast, r1, r2, file);
             else
             {
                 struct sym *sym = sym_lookup(s_currscope, ast->binop.lhs->ident.name);
-                gen_store(sym, r2, file);
-                return r2; // r1 is NOREG
+                gen_store(sym, r1, file);
+                return r1; // r2 is NOREG
             }
             
             break;
