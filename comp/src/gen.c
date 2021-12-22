@@ -150,7 +150,22 @@ static int gen_mul(int r1, int r2, FILE *file)
 
 static int gen_div(int r1, int r2, FILE *file)
 {
-    //fprintf(file, "\tdiv\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(file, "\tcqo\n");
+    fprintf(file, "\tmov\t%s, %%rax\n", regs64[r1]);
+    fprintf(file, "\tidiv\t%s\n", regs64[r2]);
+    fprintf(file, "\tmov\t%%rax, %s\n", regs64[r1]);
+    regfree(r2);
+    return r1;
+}
+
+static int gen_mod(int r1, int r2, FILE *file)
+{
+    fprintf(file, "\tcqo\n");
+    fprintf(file, "\tmov\t%s, %%rax\n", regs64[r1]);
+    fprintf(file, "\tidiv\t%s\n", regs64[r2]);
+    fprintf(file, "\tmov\t%%rdx, %s\n", regs64[r1]);
+    regfree(r2);
+    return r1;
 }
 
 static int gen_shl(int r1, int r2, FILE *file)
@@ -204,6 +219,7 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_MINUS: return gen_sub(r1, r2, file);
         case OP_SHL:   return gen_shl(r1, r2, file);
         case OP_SHR:   return gen_shr(r1, r2, file);
+        case OP_MOD:   return gen_mod(r1, r2, file);
         
         case OP_EQUAL:
         case OP_NEQUAL:
@@ -231,6 +247,7 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_BITXOREQ:
         case OP_SHLEQ:
         case OP_SHREQ:
+        case OP_MODEQ:
         {
             switch (ast->binop.op)
             {
@@ -243,6 +260,7 @@ static int gen_binop(struct ast *ast, FILE *file)
                 case OP_BITXOREQ: r2 = gen_bitxor(r1, r2, file); break;
                 case OP_SHLEQ:    r2 = gen_shl(r1, r2, file); break;
                 case OP_SHREQ:    r2 = gen_shr(r1, r2, file); break;
+                case OP_MODEQ:    r2 = gen_mod(r1, r2, file); break;
             }
             
             if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)

@@ -162,6 +162,7 @@ static int operator(int tok)
         case T_MINUS:   return OP_MINUS;
         case T_STAR:    return OP_MUL;
         case T_SLASH:   return OP_DIV;
+        case T_MOD:     return OP_MOD;
         case T_PLUSEQ:  return OP_PLUSEQ;
         case T_MINUSEQ: return OP_MINUSEQ;
         case T_MULEQ:   return OP_MULEQ;
@@ -171,6 +172,7 @@ static int operator(int tok)
         case T_XOREQ:   return OP_BITXOREQ;
         case T_SHLEQ:   return OP_SHLEQ;
         case T_SHREQ:   return OP_SHREQ;
+        case T_MODEQ:   return OP_MODEQ;
         case T_EQ:      return OP_ASSIGN;
         case T_EQEQ:    return OP_EQUAL;
         case T_NEQ:     return OP_NEQUAL;

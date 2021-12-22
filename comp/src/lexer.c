@@ -314,6 +314,15 @@ int tokenize(const char *str, struct token **toks)
                 }
                 else pushnv(T_BITXOR, toks, &i);
                 continue;
+
+            case '%':
+                if (*(++str) == '=')
+                {
+                    pushnv(T_MODEQ, toks, &i);
+                    str++;
+                }
+                else pushnv(T_MOD, toks, &i);
+                continue;
         }
 
         if (isspace(*str))

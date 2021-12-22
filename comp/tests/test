@@ -5,9 +5,7 @@ fn extern printf(int8*, ...);
 
 fn public main(argc: int32, argv: int8**)
 {
-    var x = 256;
-
-    x >>= 2;
+    var x = 256 % 120;
 
     printf("%lu\n", x);
 }
