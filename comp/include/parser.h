@@ -46,7 +46,8 @@ enum AST_TYPE
     A_PREINC,
     A_POSTINC,
     A_PREDEC,
-    A_POSTDEC
+    A_POSTDEC,
+    A_SCALE
 };
 
 struct ast
@@ -79,6 +80,7 @@ struct ast
             char *name;
             struct ast *block;
             int endlbl;
+            char *params[6];
         } funcdef;
 
         struct
@@ -156,6 +158,12 @@ struct ast
         {
             struct ast *val;
         } incdec; // ++, --
+
+        struct
+        {
+            struct ast *val;
+            unsigned int num;
+        } scale;
     };
 };
 

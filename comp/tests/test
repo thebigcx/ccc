@@ -1,4 +1,5 @@
-fn extern malloc(n: uint64) -> *;
+fn extern malloc(uint64) -> *;
+fn extern puts(int8*) -> int32;
 
 struct Structure
 {
@@ -20,4 +21,6 @@ fn public main(argc: int32, argv: int8**)
     x.x = 10;
     x.y = 32;
     x.z.x = 100;
+
+    puts(argv[8]);
 }

@@ -4,7 +4,7 @@ size_t asm_sizeof(struct type type)
 {
     if (type.ptr) return 8;
 
-    if (type.name == TYPE_STRUCT)
+    if (type.name == TYPE_STRUCT || type.name == TYPE_UNION)
         return type.struc.size;
 
     int prim;

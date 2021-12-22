@@ -457,7 +457,9 @@ static struct ast *post(struct ast *ast)
             struct ast *binop = mkast(A_BINOP);
             binop->binop.op   = OP_PLUS;
             binop->binop.lhs  = ast;
-            binop->binop.rhs  = pre();
+            binop->binop.rhs  = mkast(A_SCALE); // TODO: fix this - it does not work
+            binop->binop.rhs->scale.val = pre();
+            binop->binop.rhs->scale.num = asm_sizeof(mktype(ast->vtype.name, 0, 0));
             binop->vtype      = mktype(binop->binop.lhs->vtype.name, 0, 1);
 
             struct ast *access = mkunary(OP_DEREF, binop);
@@ -668,8 +670,13 @@ static struct ast *funcdecl()
 
     while (curr()->type != T_RPAREN)
     {
-        next();
-        expect(T_COLON);
+        if (curr()->type == T_IDENT)
+        {
+            ast->funcdef.params[sym.type.func.paramcnt] = strdup(curr()->v.sval);
+            next();
+            expect(T_COLON);
+        }
+        
         sym.type.func.params[sym.type.func.paramcnt] = calloc(1, sizeof(struct type));
         *sym.type.func.params[sym.type.func.paramcnt++] = parsetype();
         if (curr()->type != T_RPAREN) expect(T_COMMA);
@@ -701,7 +708,13 @@ static struct ast *funcdecl()
         s_parser.currfunc = ast;
         
         next();
-        ast->funcdef.block = block(SYMTAB_FUNC);
+        ast->funcdef.block = mkast(A_BLOCK);
+        ast->funcdef.block->block.symtab.type = SYMTAB_FUNC;
+
+        for (unsigned int i = 0; i < sym.type.func.paramcnt; i++)
+            sym_put(&ast->funcdef.block->block.symtab, ast->funcdef.params[i], *sym.type.func.params[i], 0);
+        
+        block(ast->funcdef.block, SYMTAB_FUNC);
         expect(T_RBRACE);
     
         s_parser.currfunc = NULL;
@@ -884,14 +897,16 @@ static struct ast *if_statement()
     expect(T_RPAREN);
 
     expect(T_LBRACE);
-    ast->ifelse.ifblock = block(SYMTAB_BLOCK);
+    ast->ifelse.ifblock = mkast(A_BLOCK);
+    block(ast->ifelse.ifblock, SYMTAB_BLOCK);
     expect(T_RBRACE);
 
     if (curr()->type == T_ELSE)
     {
         next();
         expect(T_LBRACE);
-        ast->ifelse.elseblock = block(SYMTAB_BLOCK);
+        ast->ifelse.elseblock = mkast(A_BLOCK);
+        block(ast->ifelse.elseblock, SYMTAB_BLOCK);
         expect(T_RBRACE);
     }
 
@@ -909,7 +924,8 @@ static struct ast *while_statement()
     expect(T_RPAREN);
 
     expect(T_LBRACE);
-    ast->whileloop.body = block(SYMTAB_BLOCK);
+    ast->whileloop.body = mkast(A_BLOCK);
+    block(ast->whileloop.body, SYMTAB_BLOCK);
     expect(T_RBRACE);
 
     return ast;
@@ -934,7 +950,8 @@ static struct ast *for_statement()
     expect(T_RPAREN);
 
     expect(T_LBRACE);
-    ast->forloop.body = block(SYMTAB_BLOCK);
+    ast->forloop.body = mkast(A_BLOCK);
+    block(ast->forloop.body, SYMTAB_BLOCK);
     expect(T_RBRACE);
 
     return ast;
@@ -998,9 +1015,8 @@ static struct ast *statement()
     }
 }
 
-static struct ast *block(int type)
+static struct ast *block(struct ast *block, int type)
 {
-    struct ast *block = mkast(A_BLOCK);
     block->block.symtab.type = type;
 
     block->block.symtab.parent = s_parser.currscope;
@@ -1029,7 +1045,8 @@ int parse(struct token *toks, struct ast *ast)
     s_parser.i         = 0;
     s_parser.currscope = NULL;
     
-    struct ast *tree = block(SYMTAB_GLOB);
+    struct ast *tree = mkast(A_BLOCK);
+    block(tree, SYMTAB_GLOB);
     memcpy(ast, tree, sizeof(struct ast));
 
     return 0;

@@ -265,11 +265,17 @@ static void gen_block(struct ast *ast, FILE *file)
     s_currscope = s_currscope->parent;
 }
 
+static const char *paramregs[6] =
+{
+    "%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"
+};
+
 static void gen_funcdef(struct ast *ast, FILE *file)
 {
     ast->funcdef.endlbl = label();
 
-    if (sym_lookup(s_currscope, ast->funcdef.name)->attr & SYM_PUBLIC)
+    struct sym *sym = sym_lookup(s_currscope, ast->funcdef.name);
+    if (sym->attr & SYM_PUBLIC)
         fprintf(file, "\t.global %s\n", ast->funcdef.name);
     
     fprintf(file, "%s:\n", ast->funcdef.name);
@@ -279,6 +285,11 @@ static void gen_funcdef(struct ast *ast, FILE *file)
         fprintf(file, "\tpush\t%%rbp\n");
         fprintf(file, "\tmov\t%%rsp, %%rbp\n");
         fprintf(file, "\tsub\t$%lu, %%rsp\n", ast->funcdef.block->block.symtab.curr_stackoff);
+    }
+
+    for (unsigned int i = 0; i < sym->type.func.paramcnt; i++)
+    {
+        fprintf(file, "\tmov\t%s, -%lu(%%rbp)\n", paramregs[i], sym_lookup(&ast->funcdef.block->block.symtab, ast->funcdef.params[i])->stackoff);
     }
 
     gen_block(ast->funcdef.block, file);
@@ -294,11 +305,6 @@ static void gen_inlineasm(struct ast *ast, FILE *file)
 {
     fprintf(file, "%s", ast->inasm.code);
 }
-
-static const char *paramregs[6] =
-{
-    "%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"
-};
 
 static int gen_call(struct ast *ast, FILE *file)
 {
@@ -462,6 +468,13 @@ int gen_postdec(struct ast *ast, FILE *file)
     return NOREG;
 }
 
+int gen_scale(struct ast *ast, FILE *file)
+{
+    int r = gen_code(ast->scale.val, file);
+    fprintf(file, "\timul\t$%lu, %s\n", ast->scale.num, regs64[r]);
+    return r;
+}
+
 // Generate code for an AST node
 int gen_code(struct ast *ast, FILE *file)
 {
@@ -479,6 +492,7 @@ int gen_code(struct ast *ast, FILE *file)
         case A_POSTINC: return gen_postinc(ast, file);
         case A_PREDEC:  return gen_predec(ast, file);
         case A_POSTDEC: return gen_postdec(ast, file);
+        case A_SCALE:   return gen_scale(ast, file);
         //case A_ARRACC: return gen_arracc(ast, file);
         case A_FUNCDEF:
             gen_funcdef(ast, file);
