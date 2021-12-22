@@ -485,6 +485,7 @@ static struct ast *post(struct ast *ast)
             else
             {
                 call->call.ast            = mkast(A_UNARY);
+                call->call.ast->vtype     = ast->vtype;
                 call->call.ast->unary.op  = OP_ADDROF;
                 call->call.ast->unary.val = ast;
             }
@@ -504,7 +505,7 @@ static struct ast *post(struct ast *ast)
 
             if (i < ast->vtype.func.paramcnt)
                 error("Too few parameters in call to function\n");
-            else if (i > ast->vtype.func.paramcnt)
+            else if (i > ast->vtype.func.paramcnt && !ast->vtype.func.variadic)
                 error("Too many parameters in call to function\n");
 
             return call;
@@ -686,6 +687,13 @@ static struct ast *funcdecl()
 
     while (curr()->type != T_RPAREN)
     {
+        if (curr()->type == T_ELLIPSIS)
+        {
+            sym.type.func.variadic = 1;
+            next();
+            break;
+        }
+
         if (curr()->type == T_IDENT)
         {
             ast->funcdef.params[sym.type.func.paramcnt] = strdup(curr()->v.sval);

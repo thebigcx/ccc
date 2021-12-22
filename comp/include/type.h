@@ -22,6 +22,7 @@ struct type
         struct type *ret;
         struct type *params[6];
         unsigned int paramcnt;
+        int variadic;
     } func;
 
     struct

@@ -178,7 +178,21 @@ int tokenize(const char *str, struct token **toks)
             case '}': pushnv(T_RBRACE, toks, &i); str++; continue;
             case ',': pushnv(T_COMMA,  toks, &i); str++; continue;
             case ':': pushnv(T_COLON,  toks, &i); str++; continue;
-            case '.': pushnv(T_DOT,    toks, &i); str++; continue;
+
+            case '.':
+            {
+                if (*(++str) == '.')
+                {
+                    if (*(++str) == '.')
+                    {
+                        pushnv(T_ELLIPSIS, toks, &i);
+                        str++;
+                    }
+                    // TODO: lexer error
+                }
+                else pushnv(T_DOT, toks, &i);
+                continue;
+            }
 
             case '/':
             {

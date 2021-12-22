@@ -15,6 +15,7 @@ enum TOKTYPE
     T_COLON,
     T_DOT,
     T_ARROW,
+    T_ELLIPSIS,
 
     T_IDENT,
 

@@ -316,6 +316,10 @@ static int gen_call(struct ast *ast, FILE *file)
     }
 
     int r = gen_code(ast->call.ast, file);
+
+    if (ast->call.ast->vtype.func.variadic)
+        fprintf(file, "\txor\t%%rax, %%rax\n");
+
     fprintf(file, "\tcall\t*%s\n", regs64[r]);
     regfree(r);
 
