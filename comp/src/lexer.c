@@ -244,20 +244,21 @@ int tokenize(const char *str, struct token **toks)
                 continue;
 
             case '>':
-                if (*(++str) == '=')
+                switch (*(++str))
                 {
-                    pushnv(T_GTE, toks, &i);
-                    str++;
+                    case '=': pushnv(T_GTE, toks, &i); str++; break;
+                    case '>': pushnv(T_SHR, toks, &i); str++; break;
+                    default: pushnv(T_GT, toks, &i);
                 }
-                else pushnv(T_GT, toks, &i);
                 continue;
+            
             case '<':
-                if (*(++str) == '=')
+                switch (*(++str))
                 {
-                    pushnv(T_LTE, toks, &i);
-                    str++;
+                    case '=': pushnv(T_LTE, toks, &i); str++; break;
+                    case '<': pushnv(T_SHL, toks, &i); str++; break;
+                    default: pushnv(T_LT, toks, &i);
                 }
-                else pushnv(T_LT, toks, &i);
                 continue;
 
             case '"':

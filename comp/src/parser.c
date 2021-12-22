@@ -175,6 +175,8 @@ static int operator(int tok)
         case T_LTE:     return OP_LTE;
         case T_LAND:    return OP_LAND;
         case T_LOR:     return OP_LOR;
+        case T_SHL:     return OP_SHL;
+        case T_SHR:     return OP_SHR;
     }
     return -1;
 }
@@ -318,7 +320,7 @@ static struct ast *parenexpr()
     }
     else
     {
-        struct ast *ast = binexpr(0);
+        struct ast *ast = binexpr();
         expect(T_RPAREN);
         return ast;
     }
@@ -346,7 +348,7 @@ static struct ast *pre()
             return ast;
         case T_NOT:
             next();
-            ast = mkunary(OP_NOT, pre());
+            ast = mkunary(OP_LOGNOT, pre());
             ast->vtype = ast->unary.val->vtype;
             return ast;
         case T_MINUS:
@@ -485,7 +487,7 @@ static struct ast *post(struct ast *ast)
             for (i = 0; curr()->type != T_RPAREN; i++)
             {
                 call->call.params = realloc(call->call.params, (ast->call.paramcnt + 1) * sizeof(struct ast*));
-                call->call.params[call->call.paramcnt++] = binexpr(0);
+                call->call.params[call->call.paramcnt++] = binexpr();
 
                 if (curr()->type != T_RPAREN) expect(T_COMMA);
             }
@@ -581,26 +583,38 @@ static int rightassoc(int op)
 
 static int opprec[] =
 {
-    [OP_ASSIGN]  = 1,
-    [OP_PLUSEQ]  = 1,
-    [OP_MINUSEQ] = 1,
-    [OP_MULEQ]   = 1,
-    [OP_DIVEQ]   = 1,
-    [OP_LOR]     = 2,
-    [OP_LAND]    = 3,
-    [OP_PLUS]    = 4,
-    [OP_MINUS]   = 4,
-    [OP_MUL]     = 5,
-    [OP_DIV]     = 5,
-    [OP_EQUAL]   = 6,
-    [OP_NEQUAL]  = 6,
-    [OP_LT]      = 7,
-    [OP_GT]      = 7,
-    [OP_LTE]     = 7,
-    [OP_GTE]     = 7,
+    [OP_MUL] = 3,
+    [OP_DIV] = 3,
+    [OP_MOD] = 3,
+    [OP_PLUS] = 4,
+    [OP_MINUS] = 4,
+    [OP_SHL] = 5,
+    [OP_SHR] = 5,
+    [OP_LT] = 6,
+    [OP_LTE] = 6,
+    [OP_GT] = 6,
+    [OP_GTE] = 6,
+    [OP_EQUAL] = 7,
+    [OP_NEQUAL] = 7,
+    [OP_BITAND] = 8,
+    [OP_BITXOR] = 9,
+    [OP_BITOR] = 10,
+    [OP_LAND] = 11,
+    [OP_LOR] = 12,
+    [OP_ASSIGN] = 14,
+    [OP_PLUSEQ] = 14,
+    [OP_MINUSEQ] = 14,
+    [OP_MULEQ] = 14,
+    [OP_DIVEQ] = 14,
+    [OP_MODEQ] = 14,
+    [OP_SHLEQ] = 14,
+    [OP_SHREQ] = 14,
+    [OP_BITANDEQ] = 14,
+    [OP_BITXOREQ] = 14,
+    [OP_BITOREQ] = 14,
 };
 
-static struct ast *binexpr(int ptp)
+static struct ast *recurse_binexpr(int ptp)
 {
     struct ast *rhs;
     struct ast *lhs = pre();
@@ -611,10 +625,10 @@ static struct ast *binexpr(int ptp)
     if ((op = operator(curr()->type)) == -1)
         error("Expected operator, got '%s'\n", tokstrs[curr()->type]);
 
-    while (opprec[op] > ptp || (rightassoc(op) && opprec[op] == ptp))
+    while (opprec[op] < ptp || (rightassoc(op) && opprec[op] == ptp))
     {
         next();
-        rhs = binexpr(opprec[op]);
+        rhs = recurse_binexpr(opprec[op]);
 
         struct ast *expr = mkast(A_BINOP);
         expr->binop.lhs = lhs;
@@ -640,6 +654,11 @@ static struct ast *binexpr(int ptp)
     }
 
     return lhs;
+}
+
+static struct ast *binexpr()
+{
+    return recurse_binexpr(15);
 }
 
 static struct ast *inlineasm()
@@ -775,7 +794,7 @@ static struct ast *vardecl()
     if (curr()->type == T_EQ)
     {
         expect(T_EQ);
-        struct ast *init = binexpr(0);
+        struct ast *init = binexpr();
 
         ast = mkast(A_BINOP);
         ast->binop.op = OP_ASSIGN;
@@ -895,7 +914,7 @@ static struct ast *return_statement()
         if (t.name == TYPE_VOID && !t.ptr)
             error("Returning value from void function.\n");
         
-        ast->ret.val = binexpr(0);
+        ast->ret.val = binexpr();
 
         if (!type_compatible(ast->ret.val->vtype, t))
             error("Incompatible return type in function '%s'.\n", sym->name);
@@ -912,7 +931,7 @@ static struct ast *if_statement()
     struct ast *ast = calloc(1, sizeof(struct ast));
     ast->type = A_IFELSE;
 
-    ast->ifelse.cond = binexpr(0);
+    ast->ifelse.cond = binexpr();
     expect(T_RPAREN);
 
     expect(T_LBRACE);
@@ -939,7 +958,7 @@ static struct ast *while_statement()
 
     struct ast *ast = mkast(A_WHILE);
 
-    ast->whileloop.cond = binexpr(0);
+    ast->whileloop.cond = binexpr();
     expect(T_RPAREN);
 
     expect(T_LBRACE);
@@ -962,7 +981,7 @@ static struct ast *for_statement()
     ast->forloop.init = statement();
     expect(T_SEMI);
 
-    ast->forloop.cond = binexpr(0);
+    ast->forloop.cond = binexpr();
     expect(T_SEMI);
 
     ast->forloop.update = statement();
@@ -1030,7 +1049,7 @@ static struct ast *statement()
         case T_TYPEDEF: return typedef_statement();
         case T_STRUCT:
         case T_UNION:   return comp_declaration();
-        default:        return binexpr(0);
+        default:        return binexpr();
     }
 }
 

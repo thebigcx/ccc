@@ -12,6 +12,8 @@ enum TOKTYPE
     T_MINUSEQ,
     T_MULEQ,
     T_DIVEQ,
+    T_SHL,
+    T_SHR,
     T_INTLIT, T_STRLIT,
     T_SEMI,
     T_COMMA,

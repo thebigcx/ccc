@@ -146,7 +146,18 @@ static void gen_div(int r1, int r2, FILE *file)
 {
     //fprintf(file, "\tdiv\t%s, %s\n", regs64[r1], regs64[r2]);
 }
-// gen_* functions return the register
+
+static void gen_shl(int r1, int r2, FILE *file)
+{
+    fprintf(file, "\tmovb\t%s, %%cl\n", regs8[r1]);
+    fprintf(file, "\tshl\t%%cl, %s\n", regs64[r2]);
+}
+
+static void gen_shr(int r1, int r2, FILE *file)
+{
+    fprintf(file, "\tmovb\t%s, %%cl\n", regs8[r1]);
+    fprintf(file, "\tshr\t%%cl, %s\n", regs64[r2]);
+}
 
 static int gen_binop(struct ast *ast, FILE *file)
 {
@@ -161,7 +172,15 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_MINUS:
             gen_sub(r2, r1, file);
             regfree(r2);
-            return r1;       
+            return r1;
+        case OP_SHL:
+            gen_shl(r2, r1, file);
+            regfree(r2);
+            return r1;
+        case OP_SHR:
+            gen_shr(r2, r1, file);
+            regfree(r2);
+            return r1;
 
         case OP_EQUAL:
         case OP_NEQUAL:
@@ -250,7 +269,7 @@ static int gen_unary(struct ast *ast, FILE *file)
                 return r2;
             }
         }
-        case OP_NOT:
+        case OP_LOGNOT:
         {
             int r = gen_code(ast->unary.val, file);
             fprintf(file, "\tnot\t%s\n", regs64[r]);

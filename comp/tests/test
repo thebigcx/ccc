@@ -9,7 +9,7 @@ fn public main(argc: int32, argv: int8**)
     var y = &x;
     var z = --(*y);
 
-    z *= 99 + 1;
+    var w = z << 2;
 
-    printf("%d\n", z);
+    printf("%d\n", w);
 }
