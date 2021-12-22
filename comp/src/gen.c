@@ -444,15 +444,45 @@ int gen_cast(struct ast *ast, FILE *file)
     //return r2;
 }
 
+// Pre-increment or decrement
+int gen_pre(struct ast *ast, FILE *file)
+{
+    const char *inst = ast->type == A_PREINC ? "inc" : "dec";
+
+    int r1 = gen_code(ast->incdec.val, file);
+    if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
+    {
+        int r2 = gen_code(ast->incdec.val->unary.val, file);
+        
+        fprintf(file, "\t%s\t%s\n", inst, regs64[r1]);
+        gen_storederef(ast, r1, r2, file);
+        
+        regfree(r2);
+        return r1;
+    }
+    else
+    {
+        fprintf(file, "\t%s\t%s\n", inst, regs64[r1]);
+        struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
+        gen_store(sym, r1, file);
+        return r1;
+    }
+}
+/*
 int gen_preinc(struct ast *ast, FILE *file)
 {
     int r1 = gen_code(ast->incdec.val, file);
-    /*if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
+    if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
     {
+        int r2 = gen_code(ast->incdec.val->unary.val, file);
+        
         fprintf(file, "\tinc\t%s\n", regs64[r1]);
-        gen_storederef(ast, r2, r1, file);
+        gen_storederef(ast, r1, r2, file);
+        
+        regfree(r2);
+        return r1;
     }
-    else*/
+    else
     {
         fprintf(file, "\tinc\t%s\n", regs64[r1]);
         struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
@@ -460,14 +490,16 @@ int gen_preinc(struct ast *ast, FILE *file)
         return r1;
     }
 }
-
-int gen_postinc(struct ast *ast, FILE *file)
+*/
+int gen_post(struct ast *ast, FILE *file)
 {
+    const char *inst = ast->type == A_POSTINC ? "inc" : "dec";
+
     int r1 = gen_code(ast->incdec.val, file);
     int r2 = regalloc();
 
     fprintf(file, "\tmov\t%s, %s\n", regs64[r1], regs64[r2]);
-    fprintf(file, "\tinc\t%s\n", regs64[r2]);
+    fprintf(file, "\t%s\t%s\n", inst, regs64[r2]);
     
     struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
     gen_store(sym, r2, file);
@@ -475,15 +507,27 @@ int gen_postinc(struct ast *ast, FILE *file)
     regfree(r2);
     return r1;
 }
-
+/*
 int gen_predec(struct ast *ast, FILE *file)
 {
     int r1 = gen_code(ast->incdec.val, file);
-
-    fprintf(file, "\tdec\t%s\n", regs64[r1]);
-    struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
-    gen_store(sym, r1, file);
-    return r1;
+    if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
+    {
+        int r2 = gen_code(ast->incdec.val->unary.val, file);
+        
+        fprintf(file, "\tdec\t%s\n", regs64[r1]);
+        gen_storederef(ast, r1, r2, file);
+        
+        regfree(r2);
+        return r1;
+    }
+    else
+    {
+        fprintf(file, "\tdec\t%s\n", regs64[r1]);
+        struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
+        gen_store(sym, r1, file);
+        return r1;
+    }
 }
 
 int gen_postdec(struct ast *ast, FILE *file)
@@ -500,7 +544,7 @@ int gen_postdec(struct ast *ast, FILE *file)
     regfree(r2);
     return r1;
 }
-
+*/
 int gen_scale(struct ast *ast, FILE *file)
 {
     int r = gen_code(ast->scale.val, file);
@@ -521,10 +565,10 @@ int gen_code(struct ast *ast, FILE *file)
         case A_STRLIT:  return gen_strlit(ast, file);
         case A_SIZEOF:  return gen_sizeof(ast, file);
         case A_CAST:    return gen_cast(ast, file);
-        case A_PREINC:  return gen_preinc(ast, file);
-        case A_POSTINC: return gen_postinc(ast, file);
-        case A_PREDEC:  return gen_predec(ast, file);
-        case A_POSTDEC: return gen_postdec(ast, file);
+        case A_PREINC:
+        case A_PREDEC:  return gen_pre(ast, file);
+        case A_POSTINC:
+        case A_POSTDEC: return gen_post(ast, file);
         case A_SCALE:   return gen_scale(ast, file);
         case A_FUNCDEF:
             gen_funcdef(ast, file);

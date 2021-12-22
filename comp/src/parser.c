@@ -297,8 +297,6 @@ static struct ast *post(struct ast *ast);
 static struct ast *parenexpr()
 {
     next();
-
-    struct ast *ast;
     if (istype(curr()->type))
     {
         struct type t = parsetype();
@@ -308,7 +306,7 @@ static struct ast *parenexpr()
         expect(T_RPAREN);
         struct ast *val = pre();
 
-        ast = mkast(A_CAST);
+        struct ast *ast = mkast(A_CAST);
         ast->vtype = t;
         ast->cast.type = t;
         ast->cast.val  = val;
@@ -316,10 +314,10 @@ static struct ast *parenexpr()
     }
     else
     {
-        ast = binexpr(0);
+        struct ast *ast = binexpr(0);
+        expect(T_RPAREN);
+        return ast;
     }
-
-    return ast;
 }
 
 static struct ast *pre()
@@ -563,7 +561,7 @@ static struct ast *primary()
             ast->strlit.str = strdup(curr()->v.sval);
             next();
             return ast;
-        case T_LPAREN: return parenexpr();
+        case T_LPAREN: return post(parenexpr());
 
         case T_IDENT:
         {
