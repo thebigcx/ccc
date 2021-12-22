@@ -127,6 +127,25 @@ static void gen_storederef(struct ast *ast, int r1, int r2, FILE *file)
     fprintf(file, "\t%s\t%s, (%s)\n", movs[asm_sizeof(ast->vtype)], regs[asm_sizeof(ast->vtype)][r1], regs64[r2]);
 }
 
+static void gen_add(int r1, int r2, FILE *file)
+{
+    fprintf(file, "\tadd\t%s, %s\n", regs64[r1], regs64[r2]);
+}
+
+static void gen_sub(int r1, int r2, FILE *file)
+{
+    fprintf(file, "\tsub\t%s, %s\n", regs64[r1], regs64[r2]);
+}
+
+static void gen_mul(int r1, int r2, FILE *file)
+{
+    fprintf(file, "\timul\t%s, %s\n", regs64[r1], regs64[r2]);
+}
+
+static void gen_div(int r1, int r2, FILE *file)
+{
+    //fprintf(file, "\tdiv\t%s, %s\n", regs64[r1], regs64[r2]);
+}
 // gen_* functions return the register
 
 static int gen_binop(struct ast *ast, FILE *file)
@@ -136,17 +155,13 @@ static int gen_binop(struct ast *ast, FILE *file)
 
     switch (ast->binop.op)
     {
-        case OP_PLUS:        
-            fprintf(file, "\tadd\t%s, %s\n", regs64[r1], regs64[r2]);
-            break;
+        case OP_PLUS:  gen_add(r1, r2, file); break; 
+        case OP_MUL:   gen_mul(r1, r2, file); break;
+        case OP_DIV:   gen_div(r1, r2, file); break;      
         case OP_MINUS:
-            fprintf(file, "\tsub\t%s, %s\n", regs64[r2], regs64[r1]);
+            gen_sub(r2, r1, file);
             regfree(r2);
-            return r1;
-        case OP_MUL:
-            fprintf(file, "\timul\t%s, %s\n", regs64[r1], regs64[r2]);
-            break;
-        case OP_DIV: break;
+            return r1;       
 
         case OP_EQUAL:
         case OP_NEQUAL:
@@ -165,7 +180,24 @@ static int gen_binop(struct ast *ast, FILE *file)
             return r;
         }
         case OP_ASSIGN:
+        case OP_PLUSEQ:
+        case OP_MINUSEQ:
+        case OP_MULEQ:
+        case OP_DIVEQ:
         {
+            switch (ast->binop.op)
+            {
+                case OP_PLUSEQ:  gen_add(r1, r2, file); break;
+                case OP_MULEQ:   gen_mul(r1, r2, file); break;
+                case OP_DIVEQ:   gen_div(r1, r2, file); break;
+                case OP_MINUSEQ:
+                    gen_sub(r2, r1, file);
+                    int r = r2;
+                    r2 = r1;
+                    r1 = r;
+                    break;
+            }
+
             if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
                 gen_storederef(ast, r2, r1, file);
             else

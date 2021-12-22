@@ -134,8 +134,6 @@ static size_t push_strlit(const char *str, struct token **toks, size_t *len)
     return str - str2;
 }
 
-
-
 int tokenize(const char *str, struct token **toks)
 {
     s_lexer.currline = 1;
@@ -148,12 +146,12 @@ int tokenize(const char *str, struct token **toks)
         {
             case '+':
             {
-                if (*(++str) == '+')
+                switch (*(++str))
                 {
-                    pushnv(T_INC, toks, &i);
-                    str++;
+                    case '+': pushnv(T_INC, toks, &i); str++; break;
+                    case '=': pushnv(T_PLUSEQ, toks, &i); str++; break;
+                    default: pushnv(T_PLUS, toks, &i);
                 }
-                else pushnv(T_PLUS, toks, &i);
                 continue;
             }
             
@@ -162,13 +160,22 @@ int tokenize(const char *str, struct token **toks)
                 switch (*(++str))
                 {
                     case '-': pushnv(T_DEC, toks, &i); str++; break;
+                    case '=': pushnv(T_MINUSEQ, toks, &i); str++; break;
                     case '>': pushnv(T_ARROW, toks, &i); str++; break;
                     default:  pushnv(T_MINUS, toks, &i);
                 }
                 continue;
             }
 
-            case '*': pushnv(T_STAR,   toks, &i); str++; continue;
+            case '*':
+                if (*(++str) == '=')
+                {
+                    pushnv(T_MULEQ, toks, &i);
+                    str++;
+                }
+                else pushnv(T_STAR, toks, &i);
+                continue;
+
             case ';': pushnv(T_SEMI,   toks, &i); str++; continue;
             case '(': pushnv(T_LPAREN, toks, &i); str++; continue;
             case ')': pushnv(T_RPAREN, toks, &i); str++; continue;

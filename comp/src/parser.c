@@ -158,19 +158,23 @@ static int operator(int tok)
 {
     switch (tok)
     {
-        case T_PLUS:  return OP_PLUS;
-        case T_MINUS: return OP_MINUS;
-        case T_STAR:  return OP_MUL;
-        case T_SLASH: return OP_DIV;
-        case T_EQ:    return OP_ASSIGN;
-        case T_EQEQ:  return OP_EQUAL;
-        case T_NEQ:   return OP_NEQUAL;
-        case T_GT:    return OP_GT;
-        case T_LT:    return OP_LT;
-        case T_GTE:   return OP_GTE;
-        case T_LTE:   return OP_LTE;
-        case T_LAND:  return OP_LAND;
-        case T_LOR:   return OP_LOR;
+        case T_PLUS:    return OP_PLUS;
+        case T_MINUS:   return OP_MINUS;
+        case T_STAR:    return OP_MUL;
+        case T_SLASH:   return OP_DIV;
+        case T_PLUSEQ:  return OP_PLUSEQ;
+        case T_MINUSEQ: return OP_MINUSEQ;
+        case T_MULEQ:   return OP_MULEQ;
+        case T_DIVEQ:   return OP_DIVEQ;
+        case T_EQ:      return OP_ASSIGN;
+        case T_EQEQ:    return OP_EQUAL;
+        case T_NEQ:     return OP_NEQUAL;
+        case T_GT:      return OP_GT;
+        case T_LT:      return OP_LT;
+        case T_GTE:     return OP_GTE;
+        case T_LTE:     return OP_LTE;
+        case T_LAND:    return OP_LAND;
+        case T_LOR:     return OP_LOR;
     }
     return -1;
 }
@@ -368,15 +372,9 @@ static struct ast *memaccess(struct ast *ast)
     
     struct ast *address;
     if (ptr)
-    {
-        //if (!ast->vtype.ptr)
-            //error("Use of arrow operator '->' on non-pointer type.\n");
         address = ast;
-    }
     else
     {
-        //if (ast->vtype.ptr)
-            //error("Use of dot operator '.' on pointer type\n");
         address            = mkast(A_UNARY);
         address->vtype     = mktype(TYPE_UINT64, 0, 0);
         address->unary.op  = OP_ADDROF;
@@ -412,16 +410,6 @@ static struct ast *memaccess(struct ast *ast)
                 break;
             }
         }
-
-        /*
-
-        x.y.y = 10;
-        *(&x + offsetof(y) + offsetof(y)) = 10;
-
-        x->y.y = 10;
-        *(x + offsetof(y, x) + offsetof(y, y)) = 10;
-
-        */
 
         if (!member)
             error("Struct does not contain member '%s'\n", name);
@@ -588,24 +576,28 @@ static struct ast *primary()
 
 static int rightassoc(int op)
 {
-    return op == OP_ASSIGN;
+    return op == OP_ASSIGN || op == OP_PLUSEQ || op == OP_MINUSEQ || op == OP_MULEQ || op == OP_DIVEQ;
 }
 
 static int opprec[] =
 {
-    [OP_ASSIGN] = 1,
-    [OP_LOR]    = 2,
-    [OP_LAND]   = 3,
-    [OP_PLUS]   = 4,
-    [OP_MINUS]  = 4,
-    [OP_MUL]    = 5,
-    [OP_DIV]    = 5,
-    [OP_EQUAL]  = 6,
-    [OP_NEQUAL] = 6,
-    [OP_LT]     = 7,
-    [OP_GT]     = 7,
-    [OP_LTE]    = 7,
-    [OP_GTE]    = 7,
+    [OP_ASSIGN]  = 1,
+    [OP_PLUSEQ]  = 1,
+    [OP_MINUSEQ] = 1,
+    [OP_MULEQ]   = 1,
+    [OP_DIVEQ]   = 1,
+    [OP_LOR]     = 2,
+    [OP_LAND]    = 3,
+    [OP_PLUS]    = 4,
+    [OP_MINUS]   = 4,
+    [OP_MUL]     = 5,
+    [OP_DIV]     = 5,
+    [OP_EQUAL]   = 6,
+    [OP_NEQUAL]  = 6,
+    [OP_LT]      = 7,
+    [OP_GT]      = 7,
+    [OP_LTE]     = 7,
+    [OP_GTE]     = 7,
 };
 
 static struct ast *binexpr(int ptp)
