@@ -1,3 +1,5 @@
+fn extern malloc(n: uint64) -> *;
+
 struct Structure
 {
     x: int32,
@@ -16,4 +18,8 @@ fn public main(argc: int32, argv: int8**)
     var y = &x;
 
     y->y.x = 10;
+
+    y = y = y;
+
+    var z = malloc(sizeof Structure);
 }

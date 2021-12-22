@@ -188,16 +188,16 @@ static struct type parsetype()
 
     switch (curr()->type)
     {
-        case T_INT8:    t.name = TYPE_INT8; break;
-        case T_INT16:   t.name = TYPE_INT16; break;
-        case T_INT32:   t.name = TYPE_INT32; break;
-        case T_INT64:   t.name = TYPE_INT64; break;
-        case T_UINT8:   t.name = TYPE_UINT8; break;
-        case T_UINT16:  t.name = TYPE_UINT16; break;
-        case T_UINT32:  t.name = TYPE_UINT32; break;
-        case T_UINT64:  t.name = TYPE_UINT64; break;
-        case T_FLOAT32: t.name = TYPE_FLOAT32; break;
-        case T_FLOAT64: t.name = TYPE_FLOAT64; break;
+        case T_INT8:    t.name = TYPE_INT8; next(); break;
+        case T_INT16:   t.name = TYPE_INT16; next(); break;
+        case T_INT32:   t.name = TYPE_INT32; next(); break;
+        case T_INT64:   t.name = TYPE_INT64; next(); break;
+        case T_UINT8:   t.name = TYPE_UINT8; next(); break;
+        case T_UINT16:  t.name = TYPE_UINT16; next(); break;
+        case T_UINT32:  t.name = TYPE_UINT32; next(); break;
+        case T_UINT64:  t.name = TYPE_UINT64; next(); break;
+        case T_FLOAT32: t.name = TYPE_FLOAT32; next(); break;
+        case T_FLOAT64: t.name = TYPE_FLOAT64; next(); break;
         case T_STAR:    t.name = TYPE_VOID; break;
         case T_FUNC: // Parse function signature
         {
@@ -243,7 +243,11 @@ static struct type parsetype()
             error("Expected type, got '%s'\n", tokstrs[curr()->type]);
     }
 
-    while (next()->type == T_STAR) t.ptr++;
+    while (curr()->type == T_STAR)
+    {
+        t.ptr++;
+        next();
+    }
 
 array:
     if (curr()->type == T_LBRACK)
@@ -524,10 +528,10 @@ static struct ast *primary()
     switch (curr()->type)
     {
         case T_SIZEOF:
+            next();
             ast = mkast(A_SIZEOF);
             ast->vtype = mktype(TYPE_UINT64, 0, 0);
             ast->sizeofop.t = parsetype();
-            next();
             return ast;
         case T_INTLIT:
             ast = intlit();
