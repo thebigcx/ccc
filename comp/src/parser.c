@@ -355,45 +355,86 @@ static struct ast *pre()
 
 static struct ast *memaccess(struct ast *ast)
 {
-    if (ast->vtype.name != TYPE_STRUCT)
-        error("Member access of non-struct type.\n");
-
-    next();
-    const char *name = curr()->v.sval;
-    expect(T_IDENT);
-
-    struct structmem *member = NULL;
-    for (unsigned i = 0; i < ast->vtype.struc.memcnt; i++)
+    int ptr = curr()->type == T_ARROW;
+    
+    struct ast *address;
+    if (ptr)
     {
-        if (!strcmp(name, ast->vtype.struc.members[i].name))
-        {
-            member = &ast->vtype.struc.members[i];
-            break;
-        }
+        //if (!ast->vtype.ptr)
+            //error("Use of arrow operator '->' on non-pointer type.\n");
+        address = ast;
+    }
+    else
+    {
+        //if (ast->vtype.ptr)
+            //error("Use of dot operator '.' on pointer type\n");
+        address            = mkast(A_UNARY);
+        address->vtype     = mktype(TYPE_UINT64, 0, 0);
+        address->unary.op  = OP_ADDROF;
+        address->unary.val = ast;
     }
 
-    if (!member)
-        error("Struct does not contain member '%s'\n", name);
+    struct type structype = ast->vtype;
+    ast = address;
 
-    struct ast *addrof  = mkast(A_UNARY);
-    addrof->vtype       = mktype(TYPE_UINT64, 0, 0);
-    addrof->unary.op    = OP_ADDROF;
-    addrof->unary.val   = ast;
+    struct structmem *member;
+    while (curr()->type == T_DOT || curr()->type == T_ARROW)
+    {
+        if (structype.name != TYPE_STRUCT)
+            error("Member access of non-struct type.\n");
 
-    struct ast *offset  = mkast(A_INTLIT);
-    offset->vtype       = addrof->vtype;
-    offset->intlit.ival = member->offset;
+        ptr = curr()->type == T_ARROW;
 
-    struct ast *add     = mkast(A_BINOP);
-    add->vtype          = offset->vtype;
-    add->binop.op       = OP_PLUS;
-    add->binop.lhs      = addrof;
-    add->binop.rhs      = offset;
+        if (ptr && !structype.ptr)
+            error("Use of arrow operator '->' on non-pointer to struct. Use '.' instead\n");
+        else if (!ptr && structype.ptr)
+            error("Use of dot operator '.' on pointer to struct. Use '->' instead.\n");
+
+        next();
+        const char *name = curr()->v.sval;
+        expect(T_IDENT);
+
+        member = NULL;
+        for (unsigned i = 0; i < ast->vtype.struc.memcnt; i++)
+        {
+            if (!strcmp(name, ast->vtype.struc.members[i].name))
+            {
+                member = &ast->vtype.struc.members[i];
+                break;
+            }
+        }
+
+        /*
+
+        x.y.y = 10;
+        *(&x + offsetof(y) + offsetof(y)) = 10;
+
+        x->y.y = 10;
+        *(x + offsetof(y, x) + offsetof(y, y)) = 10;
+
+        */
+
+        if (!member)
+            error("Struct does not contain member '%s'\n", name);
+
+        struct ast *offset  = mkast(A_INTLIT);
+        offset->vtype       = ast->vtype;
+        offset->intlit.ival = member->offset;
+
+        struct ast *add     = mkast(A_BINOP);
+        add->vtype          = offset->vtype;
+        add->binop.op       = OP_PLUS;
+        add->binop.lhs      = ast;
+        add->binop.rhs      = offset;
+
+        structype = member->type;
+        ast = add;
+    }
 
     struct ast *deref   = mkast(A_UNARY);
     deref->vtype        = member->type;
     deref->unary.op     = OP_DEREF;
-    deref->unary.val    = add;
+    deref->unary.val    = ast;
 
     if (curr()->type == T_DOT)
         return memaccess(deref);
@@ -457,7 +498,8 @@ static struct ast *post(struct ast *ast)
 
             return call;
         }
-        case T_DOT: return memaccess(ast);
+        case T_DOT:
+        case T_ARROW: return memaccess(ast);
         default: return ast;
     }
 }

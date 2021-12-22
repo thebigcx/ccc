@@ -7,14 +7,13 @@ struct Structure
 struct Structure2
 {
     x: int32,
-    y: int32
+    y: Structure
 };
 
 fn public main(argc: int32, argv: int8**)
 {
     var x: Structure2;
+    var y = &x;
 
-    var y = 10;
-
-    x.y = y;
+    y->y.x = 10;
 }
