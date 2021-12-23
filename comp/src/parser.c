@@ -316,8 +316,8 @@ static struct ast *parenexpr()
     if (istype(curr()->type))
     {
         struct type t = parsetype();
-        if (!isintegral(t) || t.arrlen || t.ptr)
-            error("Cannot cast to non-integral type\n");
+        if (!isintegral(t) && !t.ptr)
+            error("Cannot cast to non-integral or pointer type\n");
 
         expect(T_RPAREN);
         struct ast *val = pre();
@@ -468,6 +468,9 @@ static struct ast *post(struct ast *ast)
     {
         case T_LBRACK:
         {
+            if (!ast->vtype.arrlen && !ast->vtype.ptr)
+                error("Use of subscript operator '[]' on non-array or pointer type.\n");
+
             next();
 
             struct ast *binop = mkast(A_BINOP);
@@ -476,7 +479,7 @@ static struct ast *post(struct ast *ast)
             binop->binop.rhs  = mkast(A_SCALE); // TODO: fix this - it does not work
             binop->binop.rhs->scale.val = pre();
             binop->binop.rhs->scale.num = asm_sizeof(mktype(ast->vtype.name, 0, 0));
-            binop->vtype      = mktype(binop->binop.lhs->vtype.name, 0, 1);
+            binop->vtype      = mktype(ast->vtype.name, 0, 1);
 
             struct ast *access = mkunary(OP_DEREF, binop);
             access->vtype = binop->vtype;
