@@ -61,10 +61,10 @@ int main(int argc, char **argv)
     }
 
     char *code = readfile(in);    
-    char *preproc = preprocess(code);
+    //char *preproc = preprocess(code);
 
     struct token *toks = NULL;
-    tokenize(preproc, &toks);
+    tokenize(code, &toks);
 
     struct ast ast;
     parse(toks, &ast);

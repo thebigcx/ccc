@@ -46,7 +46,7 @@ enum TOKTYPE
 
     T_RETURN, T_WHILE, T_IF, T_ELSE, T_FOR, T_FUNC, T_VAR, T_SIZEOF, T_GOTO, T_LABEL, T_TYPEDEF, T_EXTERN, T_PUBLIC,
 
-    T_STRUCT, T_UNION, T_ENUM
+    T_STRUCT, T_UNION, T_ENUM, T_INCLUDE
 };
 
 // Type from 'enum TOKTYPE' and string or integer value

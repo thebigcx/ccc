@@ -842,6 +842,23 @@ static struct ast *vardecl()
     return ast;
 }
 
+static struct ast *include_statement()
+{
+    expect(T_INCLUDE);
+
+    const char *path = curr()->v.sval;
+    expect(T_STRLIT);
+
+    FILE *file = fopen(path, "r");
+    if (!file)
+        error("Could not find file '%s'\n", path);
+
+    fclose(file);
+
+    expect(T_SEMI);
+    return NULL;
+}
+
 static struct type parse_struct()
 {
     struct type struc = mktype(TYPE_STRUCT, 0, 0);
@@ -1073,6 +1090,7 @@ static struct ast *statement()
         case T_TYPEDEF: return typedef_statement();
         case T_STRUCT:
         case T_UNION:   return comp_declaration();
+        case T_INCLUDE: return include_statement();
         default:        return binexpr();
     }
 }

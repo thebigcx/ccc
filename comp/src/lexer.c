@@ -47,7 +47,8 @@ static struct keyword keywords[] =
     { "public",  T_PUBLIC  },
     { "struct",  T_STRUCT  },
     { "union",   T_UNION   },
-    { "enum",    T_ENUM    }
+    { "enum",    T_ENUM    },
+    { "include", T_INCLUDE }
 };
 
 // Tests whether 'c' is a valid character in an identifier - letters, numbers, or '_'
