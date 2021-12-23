@@ -226,7 +226,7 @@ static int gen_bitxor(int r1, int r2, FILE *file)
 static int gen_cmp(int r1, int r2, int op, FILE *file)
 {
     int r = regalloc();
-    fprintf(file, "\tcmpq\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(file, "\tcmpq\t%s, %s\n", regs64[r2], regs64[r1]);
     fprintf(file, "\t%s\t%%al\n", set_instructions[op]);
     fprintf(file, "\tmovzx\t%%al, %s\n", regs64[r]);
     

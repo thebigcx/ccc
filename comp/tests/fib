@@ -2,16 +2,15 @@ fn extern printf(int8*, ...);
 
 fn public main()
 {
-    var x = 1;
-    var y = 1;
-    var z = 0;
+    var y: uint64 = 0;
+    var x: uint64 = 1;
 
-    while (z < 100)
+    while (x < 1000000000000000000)
     {
-        z = x + y;
-        x = y;
+        printf("%lu\n", x);
+        
+        var z: uint64 = x;
+        x += y;
         y = z;
-
-        printf("%d\n", x);
     }
 }

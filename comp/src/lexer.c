@@ -9,6 +9,9 @@
 struct lexer
 {
     int currline, currcol;
+    const char *str;
+    struct token **toks;
+    size_t tokcnt;
 };
 
 static struct lexer s_lexer;
@@ -65,301 +68,295 @@ static int iskeyword(const char *str)
     return 0;
 }
 
-static void push(struct token t, struct token **toks, size_t *len)
+static void push(struct token t)
 {
     t.line = s_lexer.currline; t.col = s_lexer.currcol;
-    *toks = realloc(*toks, (*len + 1) * sizeof(struct token));
-    (*toks)[(*len)++] = t;
+    *s_lexer.toks = realloc(*s_lexer.toks, (s_lexer.tokcnt + 1) * sizeof(struct token));
+    (*s_lexer.toks)[s_lexer.tokcnt++] = t;
 }
 
 // Push token without value e.g. +, -, {
-static void pushnv(int t, struct token **toks, size_t *len)
+static void pushnv(int t)
 {
-    push((struct token) { .type = t }, toks, len);
+    push((struct token) { .type = t });
 }
 
-static void pushi(unsigned long i, struct token **toks, size_t *len)
+static void pushi(unsigned long i)
 {
-    push((struct token) { .type = T_INTLIT, .v.ival = i }, toks, len);
+    push((struct token) { .type = T_INTLIT, .v.ival = i });
 }
 
-static size_t pushasm(const char *str, struct token **toks, size_t *len)
+static void pushasm()
 {
-    const char *str1 = str;
-
-    while (*str++ != '{');    
-    while (*str++ != '\n');
+    while (*s_lexer.str++ != '{');
+    while (*s_lexer.str++ != '\n');
 
     char asmbuf[1024]; // TODO: dynamic
     char *asmptr = asmbuf;
 
-    while (*str != '}') *asmptr++ = *str++;
+    while (*s_lexer.str != '}') *asmptr++ = *s_lexer.str++;
     *asmptr = 0;
-    str++;
+    s_lexer.str++;
 
-    push((struct token) { .type = T_ASM, .v.sval = strdup(asmbuf) }, toks, len);
-
-    return str - str1;
+    push((struct token) { .type = T_ASM, .v.sval = strdup(asmbuf) });
 }
 
-static void push_keyword(const char *str, struct token **toks, size_t *len)
+static void push_keyword(const char *str)
 {
     int type = 0; // Will not fail, this function is preceded by a check to iskeyword()
 
     for (size_t i = 0; i < ARRLEN(keywords); i++)
         if (!strcmp(keywords[i].str, str)) type = keywords[i].token;
 
-    pushnv(type, toks, len);
+    pushnv(type);
 }
 
-static void push_ident(const char *str, struct token **toks, size_t *len)
+static void push_ident(const char *str)
 {
-    push((struct token) { .type = T_IDENT, .v.sval = strdup(str) }, toks, len);
+    push((struct token) { .type = T_IDENT, .v.sval = strdup(str) });
 }
 
-static size_t push_strlit(const char *str, struct token **toks, size_t *len)
+static void push_strlit()
 {
-    const char *str2 = str;
-
     char buf[128];
     char *bufptr = buf;
-    str++;
+    s_lexer.str++;
 
     // TODO: escape characters
-    while (*str != '"') *bufptr++ = *str++;
+    while (*s_lexer.str != '"') *bufptr++ = *s_lexer.str++;
     *bufptr = 0;
-    str++;
+    s_lexer.str++;
 
-    push((struct token) { .type = T_STRLIT, .v.sval = strdup(buf) }, toks, len);
-
-    return str - str2;
+    push((struct token) { .type = T_STRLIT, .v.sval = strdup(buf) });
 }
 
 int tokenize(const char *str, struct token **toks)
 {
     s_lexer.currline = 1;
-    s_lexer.currcol = 0;
+    s_lexer.currcol  = 0;
+    s_lexer.str      = str;
+    s_lexer.toks     = toks;
+    s_lexer.tokcnt   = 0;
 
-    size_t i = 0;
-    while (*str)
+    while (*s_lexer.str)
     {
-        switch (*str)
+        switch (*s_lexer.str)
         {
             case '+':
             {
-                switch (*(++str))
+                switch (*(++s_lexer.str))
                 {
-                    case '+': pushnv(T_INC, toks, &i); str++; break;
-                    case '=': pushnv(T_PLUSEQ, toks, &i); str++; break;
-                    default: pushnv(T_PLUS, toks, &i);
+                    case '+': pushnv(T_INC); s_lexer.str++; break;
+                    case '=': pushnv(T_PLUSEQ); s_lexer.str++; break;
+                    default: pushnv(T_PLUS);
                 }
                 continue;
             }
             
             case '-':
             {
-                switch (*(++str))
+                switch (*(++s_lexer.str))
                 {
-                    case '-': pushnv(T_DEC, toks, &i); str++; break;
-                    case '=': pushnv(T_MINUSEQ, toks, &i); str++; break;
-                    case '>': pushnv(T_ARROW, toks, &i); str++; break;
-                    default:  pushnv(T_MINUS, toks, &i);
+                    case '-': pushnv(T_DEC); s_lexer.str++; break;
+                    case '=': pushnv(T_MINUSEQ); s_lexer.str++; break;
+                    case '>': pushnv(T_ARROW); s_lexer.str++; break;
+                    default:  pushnv(T_MINUS);
                 }
                 continue;
             }
 
             case '*':
-                if (*(++str) == '=')
+                if (*(++s_lexer.str) == '=')
                 {
-                    pushnv(T_MULEQ, toks, &i);
-                    str++;
+                    pushnv(T_MULEQ);
+                    s_lexer.str++;
                 }
-                else pushnv(T_STAR, toks, &i);
+                else pushnv(T_STAR);
                 continue;
 
-            case ';': pushnv(T_SEMI,   toks, &i); str++; continue;
-            case '(': pushnv(T_LPAREN, toks, &i); str++; continue;
-            case ')': pushnv(T_RPAREN, toks, &i); str++; continue;
-            case '[': pushnv(T_LBRACK, toks, &i); str++; continue;
-            case ']': pushnv(T_RBRACK, toks, &i); str++; continue;
-            case '{': pushnv(T_LBRACE, toks, &i); str++; continue;
-            case '}': pushnv(T_RBRACE, toks, &i); str++; continue;
-            case ',': pushnv(T_COMMA,  toks, &i); str++; continue;
-            case ':': pushnv(T_COLON,  toks, &i); str++; continue;
-            case '~': pushnv(T_BITNOT, toks, &i); str++; continue;
+            case ';': pushnv(T_SEMI);   s_lexer.str++; continue;
+            case '(': pushnv(T_LPAREN); s_lexer.str++; continue;
+            case ')': pushnv(T_RPAREN); s_lexer.str++; continue;
+            case '[': pushnv(T_LBRACK); s_lexer.str++; continue;
+            case ']': pushnv(T_RBRACK); s_lexer.str++; continue;
+            case '{': pushnv(T_LBRACE); s_lexer.str++; continue;
+            case '}': pushnv(T_RBRACE); s_lexer.str++; continue;
+            case ',': pushnv(T_COMMA);  s_lexer.str++; continue;
+            case ':': pushnv(T_COLON);  s_lexer.str++; continue;
+            case '~': pushnv(T_BITNOT); s_lexer.str++; continue;
 
             case '.':
             {
-                if (*(++str) == '.')
+                if (*(++s_lexer.str) == '.')
                 {
-                    if (*(++str) == '.')
+                    if (*(++s_lexer.str) == '.')
                     {
-                        pushnv(T_ELLIPSIS, toks, &i);
-                        str++;
+                        pushnv(T_ELLIPSIS);
+                        s_lexer.str++;
                     }
                     // TODO: lexer error
                 }
-                else pushnv(T_DOT, toks, &i);
+                else pushnv(T_DOT);
                 continue;
             }
 
             case '/':
             {
-                char c = *(++str);
+                char c = *(++s_lexer.str);
                 if (c == '/')
                 {
-                    while (*str != '\n' && *str) str++;
-                    str++;
+                    while (*s_lexer.str != '\n' && *s_lexer.str) s_lexer.str++;
+                    s_lexer.str++;
                 }
                 else if (c == '*')
                 {
                     int nest = 1;
                     while (1)
                     {
-                        if (*str == '/' && *(str + 1) == '*') nest++;
-                        if (*str == '*' && *(str + 1) == '/') nest--;
+                        if (*s_lexer.str == '/' && *(s_lexer.str + 1) == '*') nest++;
+                        if (*s_lexer.str == '*' && *(s_lexer.str + 1) == '/') nest--;
                         if (!nest) break;
-                        str++;
+                        s_lexer.str++;
                     }
-                    str += 2;
+                    s_lexer.str += 2;
                 }
-                else pushnv(T_SLASH, toks, &i);
+                else pushnv(T_SLASH);
                 continue;
             }
 
             case '!':
-                if (*(++str) == '=')
+                if (*(++s_lexer.str) == '=')
                 {
-                    pushnv(T_NEQ, toks, &i);
-                    str++;
+                    pushnv(T_NEQ);
+                    s_lexer.str++;
                 }
-                else pushnv(T_NOT, toks, &i);
+                else pushnv(T_NOT);
                 continue;
 
             case '=':
-                if (*(++str) == '=')
+                if (*(++s_lexer.str) == '=')
                 {
-                    pushnv(T_EQEQ, toks, &i);
-                    str++;
+                    pushnv(T_EQEQ);
+                    s_lexer.str++;
                 }
-                else pushnv(T_EQ, toks, &i);
+                else pushnv(T_EQ);
                 continue;
 
             case '>':
-                switch (*(++str))
+                switch (*(++s_lexer.str))
                 {
-                    case '=': pushnv(T_GTE, toks, &i); str++; break;
+                    case '=': pushnv(T_GTE); s_lexer.str++; break;
                     case '>':
-                        if (*(++str) == '=')
+                        if (*(++s_lexer.str) == '=')
                         {
-                            pushnv(T_SHREQ, toks, &i);
-                            str++;
+                            pushnv(T_SHREQ);
+                            s_lexer.str++;
                         }
-                        else pushnv(T_SHR, toks, &i);
+                        else pushnv(T_SHR);
                         break;
 
-                    default: pushnv(T_GT, toks, &i);
+                    default: pushnv(T_GT);
                 }
                 continue;
             
             case '<':
-                switch (*(++str))
+                switch (*(++s_lexer.str))
                 {
-                    case '=': pushnv(T_LTE, toks, &i); str++; break;
+                    case '=': pushnv(T_LTE); s_lexer.str++; break;
                     case '<':
-                        if (*(++str) == '=')
+                        if (*(++s_lexer.str) == '=')
                         {
-                            pushnv(T_SHLEQ, toks, &i);
-                            str++;
+                            pushnv(T_SHLEQ);
+                            s_lexer.str++;
                         }
-                        else pushnv(T_SHL, toks, &i);
+                        else pushnv(T_SHL);
                         break;
                     
-                    default: pushnv(T_LT, toks, &i); break;
+                    default: pushnv(T_LT); break;
                 }
                 continue;
 
             case '"':
-                str += push_strlit(str, toks, &i);
+                push_strlit();
                 continue;
 
             case '\'':
-                str++;
-                pushi(*str, toks, &i);
-                str += 2;
+                s_lexer.str++;
+                pushi(*s_lexer.str);
+                s_lexer.str += 2;
                 continue;
 
             case '&':
-                switch (*(++str))
+                switch (*(++s_lexer.str))
                 {
-                    case '&': pushnv(T_LAND, toks, &i); str++; break;
-                    case '=': pushnv(T_ANDEQ, toks, &i); str++; break;
-                    default: pushnv(T_AMP, toks, &i); break;
+                    case '&': pushnv(T_LAND); s_lexer.str++; break;
+                    case '=': pushnv(T_ANDEQ); s_lexer.str++; break;
+                    default: pushnv(T_AMP); break;
                 }
                 continue;
             
             case '|':
-                switch (*(++str))
+                switch (*(++s_lexer.str))
                 {
-                    case '|': pushnv(T_LOR, toks, &i); str++; break;
-                    case '=': pushnv(T_OREQ, toks, &i); str++; break;
-                    default:  pushnv(T_BITOR, toks, &i); break;
+                    case '|': pushnv(T_LOR); s_lexer.str++; break;
+                    case '=': pushnv(T_OREQ); s_lexer.str++; break;
+                    default:  pushnv(T_BITOR); break;
                 }
                 continue;
 
             case '^':
-                if (*(++str) == '=')
+                if (*(++s_lexer.str) == '=')
                 {
-                    pushnv(T_XOREQ, toks, &i);
-                    str++;
+                    pushnv(T_XOREQ);
+                    s_lexer.str++;
                 }
-                else pushnv(T_BITXOR, toks, &i);
+                else pushnv(T_BITXOR);
                 continue;
 
             case '%':
-                if (*(++str) == '=')
+                if (*(++s_lexer.str) == '=')
                 {
-                    pushnv(T_MODEQ, toks, &i);
-                    str++;
+                    pushnv(T_MODEQ);
+                    s_lexer.str++;
                 }
-                else pushnv(T_MOD, toks, &i);
+                else pushnv(T_MOD);
                 continue;
         }
 
-        if (isspace(*str))
+        if (isspace(*s_lexer.str))
         {
-            switch (*str)
+            switch (*s_lexer.str)
             {
                 case ' ':  s_lexer.currcol++; break;
                 case '\t': s_lexer.currcol += 4; break;
                 case '\n': s_lexer.currline++; break;
             }
-            str++;
+            s_lexer.str++;
         }
-        else if (isdigit(*str))
-            pushi(strtol(str, (char**)&str, 10), toks, &i);
-        else if (isalpha(*str) || *str == '_')
+        else if (isdigit(*s_lexer.str))
+            pushi(strtoull(s_lexer.str, (char**)&s_lexer.str, 10));
+        else if (isalpha(*s_lexer.str) || *s_lexer.str == '_')
         {
             char ident[64];
             size_t j;
-            for (j = 0; isidentc(*str) && j < 63; j++, str++) ident[j] = *str;
+            for (j = 0; isidentc(*s_lexer.str) && j < 63; j++, s_lexer.str++) ident[j] = *s_lexer.str;
             ident[j] = 0;
 
             if (!strcmp(ident, "asm"))
-                str += pushasm(str, toks, &i);
+                pushasm();
             else if (iskeyword(ident))
-                push_keyword(ident, toks, &i);
+                push_keyword(ident);
             else
-                push_ident(ident, toks, &i);
+                push_ident(ident);
         }
         else
         {
-            printf("Invalid token: '%c'\n", *str);
+            printf("Invalid token: '%c'\n", *s_lexer.str);
             abort();
         }
     }
 
-    pushnv(T_EOF, toks, &i);
+    pushnv(T_EOF);
 
     return 0;
 }
