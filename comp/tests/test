@@ -6,8 +6,7 @@ Hello
 
 fn public main(argc: int32, argv: int8**)
 {
-    var x = 10;
-    while (--x > -2)
+    for (var x = 10; x > -2; x--)
     {
         printf("%d\n", x);
     }

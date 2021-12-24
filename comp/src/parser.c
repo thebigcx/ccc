@@ -1014,6 +1014,12 @@ static struct ast *for_statement()
     expect(T_LPAREN);
 
     struct ast *ast = mkast(A_FOR);
+    ast->forloop.body = mkast(A_BLOCK);
+
+    ast->forloop.body->block.symtab.type   = SYMTAB_BLOCK;
+    ast->forloop.body->block.symtab.parent = s_parser.currscope;
+
+    s_parser.currscope = &ast->forloop.body->block.symtab;
 
     ast->forloop.init = statement();
     expect(T_SEMI);
@@ -1024,8 +1030,10 @@ static struct ast *for_statement()
     ast->forloop.update = statement();
     expect(T_RPAREN);
 
+    // TODO: This is hacky
+    s_parser.currscope = s_parser.currscope->parent;
+
     expect(T_LBRACE);
-    ast->forloop.body = mkast(A_BLOCK);
     block(ast->forloop.body, SYMTAB_BLOCK);
     expect(T_RBRACE);
 

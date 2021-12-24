@@ -513,10 +513,13 @@ static int gen_while(struct ast *ast, FILE *file)
     return NOREG;
 }
 
+// TODO: refactor block/symtab stuff, because the code that follows is very ugly and hacky
+
 static int gen_for(struct ast *ast, FILE *file)
 {
     int looplbl = label(), endlbl = label();
 
+    s_currscope = &ast->forloop.body->block.symtab;
     DISCARD(gen_code(ast->forloop.init, file));
 
     fprintf(file, "L%d:\n", looplbl);
@@ -528,8 +531,11 @@ static int gen_for(struct ast *ast, FILE *file)
     regfree(r);
 
     DISCARD(gen_code(ast->forloop.body, file));
+    // TODO: this is hacky
+    s_currscope = &ast->forloop.body->block.symtab;
     DISCARD(gen_code(ast->forloop.update, file));
 
+    s_currscope = ast->forloop.body->block.symtab.parent;
     fprintf(file, "\tjmp\tL%d\n", looplbl);
     fprintf(file, "L%d:\n", endlbl);
     return NOREG;
