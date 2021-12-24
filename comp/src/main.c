@@ -64,6 +64,7 @@ int main(int argc, char **argv)
     char *code = readfile(in);    
     char *preproc = preprocess(code, infile);
 
+    printf("%s\n", preproc);
     struct token *toks = NULL;
     tokenize(preproc, &toks);
 

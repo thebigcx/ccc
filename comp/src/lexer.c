@@ -201,6 +201,7 @@ int tokenize(const char *str, struct token **toks)
             case ',': pushnv(T_COMMA);  s_lexer.str++; continue;
             case ':': pushnv(T_COLON);  s_lexer.str++; continue;
             case '~': pushnv(T_BITNOT); s_lexer.str++; continue;
+            case '/': pushnv(T_SLASH);  s_lexer.str++; continue;
 
             case '.':
             {
@@ -217,29 +218,6 @@ int tokenize(const char *str, struct token **toks)
                 continue;
             }
 
-            case '/':
-            {
-                char c = *(++s_lexer.str);
-                if (c == '/')
-                {
-                    while (*s_lexer.str != '\n' && *s_lexer.str) s_lexer.str++;
-                    s_lexer.str++;
-                }
-                else if (c == '*')
-                {
-                    int nest = 1;
-                    while (1)
-                    {
-                        if (*s_lexer.str == '/' && *(s_lexer.str + 1) == '*') nest++;
-                        if (*s_lexer.str == '*' && *(s_lexer.str + 1) == '/') nest--;
-                        if (!nest) break;
-                        s_lexer.str++;
-                    }
-                    s_lexer.str += 2;
-                }
-                else pushnv(T_SLASH);
-                continue;
-            }
 
             case '!':
                 if (*(++s_lexer.str) == '=')

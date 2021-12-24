@@ -1,5 +1,9 @@
 #include "tests/stdio"
 
+/*
+Hello
+*/
+
 fn public main(argc: int32, argv: int8**)
 {
     var x = 10;
