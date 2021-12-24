@@ -1,15 +1,7 @@
-fn extern malloc(uint64) -> *;
-fn extern memset(*, uint8, uint64);
-
-fn extern printf(int8*, ...);
-
-include "tests/stdio";
+#include "tests/stdio"
 
 fn public main(argc: int32, argv: int8**)
 {
-    var x = (uint8*)malloc(64);
-    memset(x, 'X', 64);
-    x[63] = 0;
-
-    printf("%s\n", x);
+    var x = 10;
+    printf("%d\n", x);
 }

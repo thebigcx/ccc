@@ -7,6 +7,7 @@
 #include <lexer.h>
 #include <parser.h>
 #include <gen.h>
+#include <util.h>
 
 const char *infile = NULL, *outfile = NULL;
 
@@ -61,10 +62,10 @@ int main(int argc, char **argv)
     }
 
     char *code = readfile(in);    
-    //char *preproc = preprocess(code);
+    char *preproc = preprocess(code, infile);
 
     struct token *toks = NULL;
-    tokenize(code, &toks);
+    tokenize(preproc, &toks);
 
     struct ast ast;
     parse(toks, &ast);

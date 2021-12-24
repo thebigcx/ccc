@@ -1,3 +1,3 @@
 #pragma once
 
-char *preprocess(const char *input);
+char *preprocess(const char *input, const char *infilename);

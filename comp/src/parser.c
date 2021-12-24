@@ -44,7 +44,7 @@ static struct token *postnext()
 
 static void error(const char *msg, ...)
 {
-    printf("\033[1;31merror: \033[37mat line %d: \033[22m", curr()->line);
+    printf("\033[1;31merror: \033[37mfile '%s' at line %d: \033[22m", curr()->file, curr()->line);
 
     va_list list;
     va_start(list, msg);
@@ -79,6 +79,7 @@ static int termin()
 static const char *tokstrs[] =
 {
     [T_EOF]     = "EOF",
+    [T_END]     = "EOF",
     [T_PLUS]    = "+",
     [T_MINUS]   = "-",
     [T_STAR]    = "*",
@@ -842,23 +843,6 @@ static struct ast *vardecl()
     return ast;
 }
 
-static struct ast *include_statement()
-{
-    expect(T_INCLUDE);
-
-    const char *path = curr()->v.sval;
-    expect(T_STRLIT);
-
-    FILE *file = fopen(path, "r");
-    if (!file)
-        error("Could not find file '%s'\n", path);
-
-    fclose(file);
-
-    expect(T_SEMI);
-    return NULL;
-}
-
 static struct type parse_struct()
 {
     struct type struc = mktype(TYPE_STRUCT, 0, 0);
@@ -1090,7 +1074,6 @@ static struct ast *statement()
         case T_TYPEDEF: return typedef_statement();
         case T_STRUCT:
         case T_UNION:   return comp_declaration();
-        case T_INCLUDE: return include_statement();
         default:        return binexpr();
     }
 }
@@ -1102,8 +1085,13 @@ static struct ast *block(struct ast *block, int type)
     block->block.symtab.parent = s_parser.currscope;
     s_parser.currscope = &block->block.symtab;
 
-    while (curr()->type != T_RBRACE && curr()->type != T_EOF)
+    while (curr()->type != T_RBRACE && curr()->type != T_END)
     {
+        if (curr()->type == T_EOF)
+        {
+            next(); continue;
+        }
+
         struct ast *ast = statement();
         if (!ast) continue; // Could be a declaration - TODO: distinguish global block from function blocks
 

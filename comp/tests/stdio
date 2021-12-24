@@ -1,2 +1,4 @@
-fn puts(str: int8*): int32;
-fn malloc(n: uint32): *;
+fn extern malloc(uint64) -> *;
+fn extern memset(*, uint8, uint64);
+
+fn extern printf(int8*, ...);

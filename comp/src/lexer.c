@@ -12,6 +12,7 @@ struct lexer
     const char *str;
     struct token **toks;
     size_t tokcnt;
+    const char *currfile;
 };
 
 static struct lexer s_lexer;
@@ -51,7 +52,6 @@ static struct keyword keywords[] =
     { "struct",  T_STRUCT  },
     { "union",   T_UNION   },
     { "enum",    T_ENUM    },
-    { "include", T_INCLUDE }
 };
 
 // Tests whether 'c' is a valid character in an identifier - letters, numbers, or '_'
@@ -70,7 +70,9 @@ static int iskeyword(const char *str)
 
 static void push(struct token t)
 {
-    t.line = s_lexer.currline; t.col = s_lexer.currcol;
+    t.line = s_lexer.currline;
+    t.col  = s_lexer.currcol;
+    t.file = s_lexer.currfile;
     *s_lexer.toks = realloc(*s_lexer.toks, (s_lexer.tokcnt + 1) * sizeof(struct token));
     (*s_lexer.toks)[s_lexer.tokcnt++] = t;
 }
@@ -142,6 +144,21 @@ int tokenize(const char *str, struct token **toks)
     {
         switch (*s_lexer.str)
         {
+            case '#':
+            {
+                s_lexer.str += 2;
+                unsigned int line = strtoull(s_lexer.str, (char**)&s_lexer.str, 10);
+                
+                s_lexer.str += 2;
+            
+                char *file = strndup(s_lexer.str, strchr(s_lexer.str, '"') - s_lexer.str);
+                while (*s_lexer.str++ != '\n');
+
+                s_lexer.currline = line;
+                s_lexer.currfile = file;
+                continue;
+            }
+
             case '+':
             {
                 switch (*(++s_lexer.str))
@@ -323,6 +340,11 @@ int tokenize(const char *str, struct token **toks)
                 continue;
         }
 
+        if (*s_lexer.str == -1)
+        {
+            pushnv(T_EOF);
+            s_lexer.str++;
+        }
         if (isspace(*s_lexer.str))
         {
             switch (*s_lexer.str)
@@ -356,7 +378,6 @@ int tokenize(const char *str, struct token **toks)
         }
     }
 
-    pushnv(T_EOF);
-
+    pushnv(T_END);
     return 0;
 }

@@ -3,6 +3,7 @@
 enum TOKTYPE
 {
     T_EOF,
+    T_END,
     T_ID,
     T_PLUS,
     T_MINUS,
@@ -46,7 +47,7 @@ enum TOKTYPE
 
     T_RETURN, T_WHILE, T_IF, T_ELSE, T_FOR, T_FUNC, T_VAR, T_SIZEOF, T_GOTO, T_LABEL, T_TYPEDEF, T_EXTERN, T_PUBLIC,
 
-    T_STRUCT, T_UNION, T_ENUM, T_INCLUDE
+    T_STRUCT, T_UNION, T_ENUM
 };
 
 // Type from 'enum TOKTYPE' and string or integer value
@@ -59,6 +60,7 @@ struct token
         char *sval;
     } v;
     int line, col;
+    const char *file;
 };
 
 int tokenize(const char *str, struct token **toks);

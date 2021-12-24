@@ -1,65 +1,50 @@
 #include <preproc.h>
+#include <util.h>
 
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-static char *s_input;
-
-char *preprocess(const char *input)
+char *preprocess(const char *code, const char *infilename)
 {
-    s_input = strdup(input);
-
-    char *output = strdup(input);
+    FILE *output = tmpfile();
+    char *input = strdup(code);
 
     int line = 1;
-    char *token = strtok(s_input, "\n");
-    while (token)
+    char *token;
+    
+    fprintf(output, "# 1 \"%s\"\n", infilename);
+    while ((token = strsep(&input, "\n")))
     {
         if (token[0] == '#')
         {
-            size_t linelen = strlen(token);
-            size_t start = token - s_input;
-            size_t end = start + linelen;
+            *strchr(++token, ' ') = 0;
 
-            char *second = strchr(token, ' ');
-            *second++ = 0;
-            
-            token++;
             if (!strcmp(token, "include"))
             {
-                char *path = second + 1;
-                *strchr(path, '"') = 0;
-
-                FILE *file = fopen(path, "r");
+                token += strlen(token) + 1; // space and quote
+                *strchr(++token, '"') = 0;
+            
+                FILE *file = fopen(token, "r");
                 if (!file)
                 {
                     printf("\033[1;31merror: \033[37mat line %d: \033[22m", line);
-                    printf("Could not find file '%s'\n", path);
+                    printf("Could not find file '%s'\n", token);
                     exit(-1);
                 }
 
-                fseek(file, 0, SEEK_END);
-                size_t len = ftell(file);
-                fseek(file, 0, SEEK_SET);
-
-                char *contents = malloc(len + 1);
-                fread(contents, 1, len, file);
-                contents[len] = 0;
-
-                fclose(file);
-
-                output = realloc(output, strlen(output) + len + 1);
-                memmove(output + len, output + end, strlen(input) - start);
-                memcpy(output + start, contents, len);
-
-                free(contents);
+                char *contents = readfile(file);
+                fprintf(output, "# 1 \"%s\"\n", token);
+                fprintf(output, "%s%c\n", contents, (char)-1);
+                fprintf(output, "# %d \"%s\"\n", line, infilename);
             }
         }
-        
-        token = strtok(NULL, "\n");
+        else
+        {
+            fprintf(output, "%s\n", token);
+        }
         line++;
     }
 
-    return output;
+    return readfile(output);
 }
