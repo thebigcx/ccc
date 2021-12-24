@@ -27,6 +27,7 @@ enum OPERATOR
     OP_BITOR,
     OP_LAND,
     OP_LOR,
+    OP_TERNARY,
     OP_ASSIGN,
     OP_PLUSEQ,
     OP_MINUSEQ,
@@ -64,7 +65,8 @@ enum AST_TYPE
     A_POSTINC,
     A_PREDEC,
     A_POSTDEC,
-    A_SCALE
+    A_SCALE,
+    A_TERNARY
 };
 
 struct ast
@@ -181,6 +183,11 @@ struct ast
             struct ast *val;
             unsigned int num;
         } scale;
+
+        struct
+        {
+            struct ast *cond, *lhs, *rhs;
+        } ternary;
     };
 };
 

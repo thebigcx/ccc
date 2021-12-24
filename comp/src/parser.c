@@ -73,7 +73,7 @@ static struct ast *mkunary(int op, struct ast *val)
 static int termin()
 {
     int t = curr()->type;
-    return t == T_SEMI || t == T_RPAREN || t == T_COMMA || t == T_RBRACK;
+    return t == T_SEMI || t == T_RPAREN || t == T_COMMA || t == T_RBRACK || t == T_COLON;
 }
 
 static const char *tokstrs[] =
@@ -183,6 +183,7 @@ static int operator(int tok)
         case T_LTE:     return OP_LTE;
         case T_LAND:    return OP_LAND;
         case T_LOR:     return OP_LOR;
+        case T_TERNARY: return OP_TERNARY;
         case T_SHL:     return OP_SHL;
         case T_SHR:     return OP_SHR;
         case T_AMP:     return OP_BITAND;
@@ -626,6 +627,7 @@ static int opprec[] =
     [OP_BITOR] = 10,
     [OP_LAND] = 11,
     [OP_LOR] = 12,
+    [OP_TERNARY] = 13,
     [OP_ASSIGN] = 14,
     [OP_PLUSEQ] = 14,
     [OP_MINUSEQ] = 14,
@@ -654,6 +656,16 @@ static struct ast *recurse_binexpr(int ptp)
     {
         next();
         rhs = recurse_binexpr(opprec[op]);
+        
+        if (op == OP_TERNARY)
+        {
+            expect(T_COLON);
+            struct ast *ternary   = mkast(A_TERNARY);
+            ternary->ternary.lhs  = rhs;
+            ternary->ternary.cond = lhs;
+            ternary->ternary.rhs  = binexpr();
+            return ternary;
+        }
 
         struct ast *expr = mkast(A_BINOP);
         expr->binop.lhs = lhs;

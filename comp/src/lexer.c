@@ -191,17 +191,18 @@ int tokenize(const char *str, struct token **toks)
                 else pushnv(T_STAR);
                 continue;
 
-            case ';': pushnv(T_SEMI);   s_lexer.str++; continue;
-            case '(': pushnv(T_LPAREN); s_lexer.str++; continue;
-            case ')': pushnv(T_RPAREN); s_lexer.str++; continue;
-            case '[': pushnv(T_LBRACK); s_lexer.str++; continue;
-            case ']': pushnv(T_RBRACK); s_lexer.str++; continue;
-            case '{': pushnv(T_LBRACE); s_lexer.str++; continue;
-            case '}': pushnv(T_RBRACE); s_lexer.str++; continue;
-            case ',': pushnv(T_COMMA);  s_lexer.str++; continue;
-            case ':': pushnv(T_COLON);  s_lexer.str++; continue;
-            case '~': pushnv(T_BITNOT); s_lexer.str++; continue;
-            case '/': pushnv(T_SLASH);  s_lexer.str++; continue;
+            case ';': pushnv(T_SEMI);    s_lexer.str++; continue;
+            case '(': pushnv(T_LPAREN);  s_lexer.str++; continue;
+            case ')': pushnv(T_RPAREN);  s_lexer.str++; continue;
+            case '[': pushnv(T_LBRACK);  s_lexer.str++; continue;
+            case ']': pushnv(T_RBRACK);  s_lexer.str++; continue;
+            case '{': pushnv(T_LBRACE);  s_lexer.str++; continue;
+            case '}': pushnv(T_RBRACE);  s_lexer.str++; continue;
+            case ',': pushnv(T_COMMA);   s_lexer.str++; continue;
+            case ':': pushnv(T_COLON);   s_lexer.str++; continue;
+            case '~': pushnv(T_BITNOT);  s_lexer.str++; continue;
+            case '/': pushnv(T_SLASH);   s_lexer.str++; continue;
+            case '?': pushnv(T_TERNARY); s_lexer.str++; continue;
 
             case '.':
             {

@@ -475,9 +475,8 @@ static int gen_ifelse(struct ast *ast, FILE *file)
     
     int endlbl = label();
 
-    fprintf(file, "\tmovq\t$1, %%rax\n");
-    fprintf(file, "\tcmpq\t%%rax, %s\n", regs64[r]);
-    fprintf(file, "\tjne\tL%d\n", elselbl != -1 ? elselbl : endlbl);
+    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r]);
+    fprintf(file, "\tjz\tL%d\n", elselbl != -1 ? elselbl : endlbl);
 
     regfree(r);
 
@@ -501,9 +500,8 @@ static int gen_while(struct ast *ast, FILE *file)
     fprintf(file, "L%d:\n", looplbl);
     int r = gen_code(ast->ifelse.cond, file);
     
-    fprintf(file, "\tmovq\t$1, %%rax\n");
-    fprintf(file, "\tcmpq\t%s, %%rax\n", regs64[r]);
-    fprintf(file, "\tjne\tL%d\n", endlbl);
+    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r]);
+    fprintf(file, "\tjz\tL%d\n", endlbl);
 
     regfree(r);
 
@@ -524,9 +522,8 @@ static int gen_for(struct ast *ast, FILE *file)
     fprintf(file, "L%d:\n", looplbl);
     int r = gen_code(ast->forloop.cond, file);
     
-    fprintf(file, "\tmovq\t$1, %%rax\n");
-    fprintf(file, "\tcmpq\t%s, %%rax\n", regs64[r]);
-    fprintf(file, "\tjne\tL%d\n", endlbl);
+    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r]);
+    fprintf(file, "\tjz\tL%d\n", endlbl);
 
     regfree(r);
 
@@ -629,6 +626,31 @@ int gen_scale(struct ast *ast, FILE *file)
     return r;
 }
 
+int gen_ternary(struct ast *ast, FILE *file)
+{
+    int l1 = label(), l2 = label();
+    int r1 = gen_code(ast->ternary.cond, file);
+    int r2 = regalloc();
+
+    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r1]);
+    fprintf(file, "\tjz\tL%d\n", l1);
+    regfree(r1);
+
+    int r3 = gen_code(ast->ternary.lhs, file);
+    fprintf(file, "\tmovq\t%s, %s\n", regs64[r3], regs64[r2]);
+    regfree(r3);
+
+    fprintf(file, "\tjmp\tL%d\n", l2);
+    fprintf(file, "L%d:\n", l1);
+    
+    r3 = gen_code(ast->ternary.rhs, file);
+    fprintf(file, "\tmovq\t%s, %s\n", regs64[r3], regs64[r2]);
+    regfree(r3);
+
+    fprintf(file, "L%d:\n", l2);
+    return r2;
+}
+
 // Generate code for an AST node
 int gen_code(struct ast *ast, FILE *file)
 {
@@ -656,6 +678,7 @@ int gen_code(struct ast *ast, FILE *file)
         case A_FOR:     return gen_for(ast, file);
         case A_LABEL:   return gen_label(ast, file);
         case A_GOTO:    return gen_goto(ast, file);
+        case A_TERNARY: return gen_ternary(ast, file);
     }
 
     return NOREG;
