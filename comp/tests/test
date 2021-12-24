@@ -4,10 +4,14 @@
 Hello
 */
 
+#define PRINT 1
+
 fn public main(argc: int32, argv: int8**)
 {
     for (var x = 10; x > -2; x--)
     {
+#ifdef PRINT
         printf("%d\n", x);
+#endif
     }
 }

@@ -38,6 +38,8 @@ char *preprocess(const char *code, const char *infilename)
     }
 
     int line = 1;
+    int discard = 0; // Whether to discard lines
+    int nested  = 0; // Nested ifdefs
     char *token;
 
     fprintf(output, "# 1 \"%s\"\n", infilename);
@@ -45,16 +47,29 @@ char *preprocess(const char *code, const char *infilename)
     {
         if (token[0] == '#')
         {
-            if (!strcmp(token, "endif"))
+            if (!strcmp(++token, "endif"))
             {
-                continue;                
+                if (!nested)
+                {
+                    printf("\033[1;31merror: \033[37mat line %d: \033[22m", line);
+                    printf("Unexpected 'endif' directive\n");
+                    exit(-1);
+                }
+
+                nested--;
+                fprintf(output, "\n");
+                goto next_line;
+            }
+            if (discard)
+            {
+                fprintf(output, "\n");
+                goto next_line;
             }
 
-            *strchr(++token, ' ') = 0;
+            *strchr(token, ' ') = 0;
             
             if (!strcmp(token, "include"))
             {
-            
                 token += strlen(token) + 1; // space and quote
                 *strchr(++token, '"') = 0;
             
@@ -69,7 +84,7 @@ char *preprocess(const char *code, const char *infilename)
                 char *contents = readfile(file);
                 fprintf(output, "# 1 \"%s\"\n", token);
                 fprintf(output, "%s%c\n", contents, (char)-1);
-                fprintf(output, "# %d \"%s\"\n", ++line, infilename);
+                fprintf(output, "# %d \"%s\"\n", line + 1, infilename);
             }
             else if (!strcmp(token, "define"))
             {
@@ -89,17 +104,45 @@ char *preprocess(const char *code, const char *infilename)
                     .name = strdup(ident),
                     .val  = token ? strdup(token) : NULL
                 };
+                fprintf(output, "\n");
             }
             else if (!strcmp(token, "ifdef"))
             {
-                //char *ident = token += strlen(token) + 1; // space
+                char *ident = token += strlen(token) + 1; // space
+
+                int defined = 0;
+                for (unsigned int i = 0; i < s_definecnt; i++)
+                {
+                    if (!strcmp(s_defines[i].name, ident))
+                    {
+                        defined = 1;
+                        break;
+                    }
+                }
+
+                if (!defined)
+                    discard++;
+                fprintf(output, "\n");
+                nested++;
             }
         }
         else
         {
-            fprintf(output, "%s\n", token);
+            if (discard)
+                fprintf(output, "\n");
+            else
+                fprintf(output, "%s\n", token);
         }
+
+next_line:
         line++;
+    }
+
+    if (discard)
+    {
+        printf("\033[1;31merror: \033[37mat line %d: \033[22m", line - 1);
+        printf("No matching 'endif' directive\n");
+        exit(-1);
     }
 
     return readfile(output);
