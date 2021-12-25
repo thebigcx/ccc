@@ -51,7 +51,7 @@ char *preprocess(const char *code, const char *infilename)
             {
                 if (!nested)
                 {
-                    printf("\033[1;31merror: \033[37mat line %d: \033[22m", line);
+                    printf("\033[1;31merror: \033[37mfile '%s' at line %d: \033[22m", infilename, line);
                     printf("Unexpected 'endif' directive\n");
                     exit(-1);
                 }
@@ -76,14 +76,15 @@ char *preprocess(const char *code, const char *infilename)
                 FILE *file = fopen(token, "r");
                 if (!file)
                 {
-                    printf("\033[1;31merror: \033[37mat line %d: \033[22m", line);
+                    printf("\033[1;31merror: \033[37mfile '%s' at line %d: \033[22m", infilename, line);
                     printf("Could not find file '%s'\n", token);
                     exit(-1);
                 }
 
                 char *contents = readfile(file);
+                char *preproc  = preprocess(contents, token);
                 fprintf(output, "# 1 \"%s\"\n", token);
-                fprintf(output, "%s%c\n", contents, (char)-1);
+                fprintf(output, "%s%c\n", preproc, (char)-1);
                 fprintf(output, "# %d \"%s\"\n", line + 1, infilename);
             }
             else if (!strcmp(token, "define"))
@@ -106,8 +107,9 @@ char *preprocess(const char *code, const char *infilename)
                 };
                 fprintf(output, "\n");
             }
-            else if (!strcmp(token, "ifdef"))
+            else if (!strcmp(token, "ifdef") || !strcmp(token, "ifndef"))
             {
+                int ifndef = !strcmp(token, "ifndef");
                 char *ident = token += strlen(token) + 1; // space
 
                 int defined = 0;
@@ -120,7 +122,7 @@ char *preprocess(const char *code, const char *infilename)
                     }
                 }
 
-                if (!defined)
+                if ((ifndef && defined) || (!ifndef && !defined))
                     discard++;
                 fprintf(output, "\n");
                 nested++;
@@ -138,9 +140,9 @@ next_line:
         line++;
     }
 
-    if (discard)
+    if (nested)
     {
-        printf("\033[1;31merror: \033[37mat line %d: \033[22m", line - 1);
+        printf("\033[1;31merror: \033[37mfile '%s' at line %d: \033[22m", infilename, line - 1);
         printf("No matching 'endif' directive\n");
         exit(-1);
     }
