@@ -56,6 +56,7 @@ char *preprocess(const char *code, const char *infilename)
                     exit(-1);
                 }
 
+                if (discard == nested) discard = 0;
                 nested--;
                 fprintf(output, "\n");
                 goto next_line;
@@ -122,10 +123,10 @@ char *preprocess(const char *code, const char *infilename)
                     }
                 }
 
-                if ((ifndef && defined) || (!ifndef && !defined))
-                    discard++;
-                fprintf(output, "\n");
                 nested++;
+                if (((ifndef && defined) || (!ifndef && !defined)) && !discard)
+                    discard = nested;
+                fprintf(output, "\n");
             }
         }
         else

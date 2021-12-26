@@ -5,7 +5,7 @@
 Hello
 */
 
-#define PRINT 1
+#define PRINT
 
 fn public main(argc: int32, argv: int8**)
 {
