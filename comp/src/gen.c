@@ -696,7 +696,16 @@ void gen_ast(struct ast *ast, FILE *file)
     {
         struct sym *sym = &ast->block.symtab.syms[i];
         if (sym->attr & SYM_GLOBAL && !(sym->type.name == TYPE_FUNC && !sym->type.ptr))
+        {
+            // TODO: fix this
+            //fprintf(file, "\t.section .data\n");
+
+            if (sym->attr & SYM_PUBLIC)
+                fprintf(file, "\t.global %s\n", sym->name);
             fprintf(file, "\t.comm %s, %lu\n", sym->name, asm_sizeof(sym->type));
+
+            //fprintf(file, "\t.section .text\n");
+        }
     }
 
     gen_code(ast, file);

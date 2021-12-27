@@ -354,6 +354,8 @@ static struct ast *pre()
             
             ast = mkunary(OP_ADDROF, val);
             ast->vtype = ast->unary.val->vtype;
+            if (ast->type != A_IDENT)
+                error("Invalid use of address-of operator.\n");
             ast->vtype.ptr++;
             return ast;
         }
@@ -370,16 +372,22 @@ static struct ast *pre()
             next();
             ast = mkunary(OP_LOGNOT, pre());
             ast->vtype = ast->unary.val->vtype;
+            if (!isintegral(ast->vtype) && !ast->vtype.ptr)
+                error("Logical not on non-integral or pointer type.\n");
             return ast;
         case T_BITNOT:
             next();
             ast = mkunary(OP_BITNOT, pre());
             ast->vtype = ast->unary.val->vtype;
+            if (!isintegral(ast->vtype))
+                error("Bitwise not on non-integral type.\n");
             return ast;
         case T_MINUS:
             next();
             ast = mkunary(OP_MINUS, pre());
             ast->vtype = ast->unary.val->vtype;
+            if (!isintegral(ast->vtype))
+                error("Unary minus on non-integral type.\n");
             return ast;
         case T_INC:
         case T_DEC:
@@ -699,6 +707,9 @@ static struct ast *recurse_binexpr(int ptp)
 
         if (op == OP_ASSIGN)
         {
+            if (!(lhs->type == A_UNARY && lhs->unary.op == OP_DEREF) && lhs->type != A_IDENT)
+                error("Expected an lvalue in assignment.\n");
+
             lhs->lvalue = 1;
             rhs->lvalue = 0;
         }
@@ -829,7 +840,24 @@ static struct ast *funcdecl()
 
 static struct ast *vardecl()
 {
+    int attr = 0;
+    if (curr()->type == T_PUBLIC)
+    {
+        attr |= SYM_PUBLIC;
+        next();
+    }
+
+    if (curr()->type == T_EXTERN)
+    {
+        attr |= SYM_EXTERN;
+        next();
+    }
+
     const char *name = curr()->v.sval;
+    struct sym *prev = sym_lookup(s_parser.currscope, name);
+    if (prev && !(prev->attr & SYM_EXTERN) && !(attr & SYM_EXTERN))
+        error("Multiple definition of variable '%s'\n", name);
+
     expect(T_IDENT);
     struct type t;
     struct ast *ast;
@@ -871,7 +899,7 @@ static struct ast *vardecl()
         }
     }
 
-    sym_put(s_parser.currscope, name, t, 0);
+    sym_put(s_parser.currscope, name, t, attr);
     return ast;
 }
 
