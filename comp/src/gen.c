@@ -278,8 +278,44 @@ static int gen_logor(int r1, int r2, FILE *file)
     return r2;
 }
 
+static int gen_lazyeval(struct ast *ast, FILE *file)
+{
+    int end = label();
+
+    int r1 = gen_code(ast->binop.lhs, file);
+
+    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r1]);
+    if (ast->binop.op == OP_LAND)
+        fprintf(file, "\tjz\tL%d\n", end);
+    else if (ast->binop.op == OP_LOR)
+        fprintf(file, "\tjnz\tL%d\n", end);
+
+    int r2 = gen_code(ast->binop.rhs, file);
+
+    switch (ast->binop.op)
+    {
+        case OP_LAND: fprintf(file, "\tandq\t%s, %s\n", regs64[r2], regs64[r1]); break;
+        case OP_LOR:  fprintf(file, "\torq\t%s, %s\n", regs64[r2], regs64[r1]); break;
+    }
+    regfree(r2);
+
+    fprintf(file, "L%d:\n", end);
+    
+    int ret = regalloc();
+
+    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r1]);
+    fprintf(file, "\tsetne\t%%al\n");
+    fprintf(file, "\tmovzx\t%%al, %s\n", regs64[ret]);
+
+    regfree(r1);
+    return ret;
+}
+
 static int gen_binop(struct ast *ast, FILE *file)
 {
+    if (ast->binop.op == OP_LAND || ast->binop.op == OP_LOR)
+        return gen_lazyeval(ast, file);
+
     int r1 = gen_code(ast->binop.lhs, file);
     int r2 = gen_code(ast->binop.rhs, file);
 

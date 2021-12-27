@@ -1,22 +1,13 @@
 #include "tests/stdio.h"
-#include "tests/stdio.h"
-
-/*
-Hello
-*/
-
-#define PRINT
-
-typedef Integer32 = fn* (int32, int8**) -> int32;
 
 fn public main(argc: int32, argv: int8**) -> int32
 {
-    var x: Integer32 = &main;
+    var x = 10;
+    var y = (int32*)0;
 
-    for (var i = 0; i < argc; i++)
+    if ((uint64)y && *y == 10)
     {
-        printf("%s\n", argv[i]);
+        printf("y == 10\n");
     }
-
-    return x(argc, argv);
+    return 0;
 }
