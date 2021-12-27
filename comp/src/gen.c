@@ -389,9 +389,32 @@ static int gen_block(struct ast *ast, FILE *file)
     return NOREG;
 }
 
-static const char *paramregs[6] =
+static const char *paramregs64[6] =
 {
     "%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"
+};
+
+static const char *paramregs32[6] =
+{
+    "%edi", "%esi", "%edx", "%ecx", "%r8d", "%r9d"
+};
+
+static const char *paramregs16[6] =
+{
+    "%di", "%si", "%dx", "%cx", "%r8w", "%r9w"
+};
+
+static const char *paramregs8[6] =
+{
+    "%dil", "%sil", "%dl", "%cl", "%r8b", "%r9b"
+};
+
+static const char **paramregs[] =
+{
+    [1] = paramregs8,
+    [2] = paramregs16,
+    [4] = paramregs32,
+    [8] = paramregs64
 };
 
 static int gen_funcdef(struct ast *ast, FILE *file)
@@ -413,7 +436,9 @@ static int gen_funcdef(struct ast *ast, FILE *file)
 
     for (unsigned int i = 0; i < sym->type.func.paramcnt; i++)
     {
-        fprintf(file, "\tmovq\t%s, -%lu(%%rbp)\n", paramregs[i], sym_lookup(&ast->funcdef.block->block.symtab, ast->funcdef.params[i])->stackoff);
+        struct sym *sym = sym_lookup(&ast->funcdef.block->block.symtab, ast->funcdef.params[i]);
+        size_t size = asm_sizeof(sym->type);
+        fprintf(file, "\t%s\t%s, -%lu(%%rbp)\n", movs[size], paramregs[size][i], sym->stackoff);
     }
 
     gen_block(ast->funcdef.block, file);
@@ -437,7 +462,8 @@ static int gen_call(struct ast *ast, FILE *file)
     for (unsigned int i = 0; i < ast->call.paramcnt; i++)
     {
         int par = gen_code(ast->call.params[i], file);
-        fprintf(file, "\tmovq\t%s, %s\n", regs64[par], paramregs[i]);
+        size_t s = asm_sizeof(ast->call.params[i]->vtype);
+        fprintf(file, "\t%s\t%s, %s\n", movs[s], regs[s][par], paramregs[s][i]);
         regfree(par);
     }
 
@@ -454,16 +480,25 @@ static int gen_call(struct ast *ast, FILE *file)
     return r;
 }
 
+static const char *retrs[] =
+{
+    [1] = "%al",
+    [2] = "%ax",
+    [4] = "%eax",
+    [8] = "%rax"
+};
+
 static int gen_return(struct ast *ast, FILE *file)
 {
     if (ast->ret.val)
     {
         int r = gen_code(ast->ret.val, file);
-        fprintf(file, "\tmovq\t%s, %%rax\n", regs64[r]);
+        size_t s = asm_sizeof(ast->ret.val->vtype);
+        fprintf(file, "\t%s\t%s, %s\n", movs[s], regs[s][r], retrs[s]);
         regfree(r);
     }
 
-    fprintf(file, "\tjmpq\tL%d\n", ast->ret.func->funcdef.endlbl);
+    fprintf(file, "\tjmp\tL%d\n", ast->ret.func->funcdef.endlbl);
     return NOREG;
 }
 

@@ -355,7 +355,7 @@ static struct ast *pre()
             
             ast = mkunary(OP_ADDROF, val);
             ast->vtype = ast->unary.val->vtype;
-            if (ast->type != A_IDENT)
+            if (val->type != A_IDENT)
                 error("Invalid use of address-of operator.\n");
             ast->vtype.ptr++;
             return ast;
