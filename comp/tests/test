@@ -7,8 +7,20 @@ Hello
 
 #define PRINT
 
+struct Structure
+{
+    x: int32, y: int32
+};
+
 fn public main(argc: int32, argv: int8**)
 {
+    var x: Structure[2];
+    x[2].x = 100;
+
+    //var x: int32[4];
+    //x[2] = 10 + 2;
+    printf("%d\n", x[2].x);
+
     for (var x = 10; x > -2; x--)
     {
 #ifdef PRINT

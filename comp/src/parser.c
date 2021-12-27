@@ -250,7 +250,8 @@ static struct type parsetype()
                 if (!strcmp(s_typedefs[i].name, curr()->v.sval))
                 {
                     next();
-                    return s_typedefs[i].type;
+                    t = s_typedefs[i].type;
+                    goto done_typename;
                 }
             }
             goto error;
@@ -261,6 +262,7 @@ static struct type parsetype()
             error("Expected type, got '%s'\n", tokstrs[curr()->type]);
     }
 
+done_typename:
     while (curr()->type == T_STAR)
     {
         t.ptr++;
@@ -394,10 +396,12 @@ static struct ast *pre()
 static struct ast *memaccess(struct ast *ast)
 {
     int ptr = curr()->type == T_ARROW;
-    
+
     struct ast *address;
     if (ptr)
         address = ast;
+    else if (ast->type == A_UNARY && ast->unary.op == OP_DEREF)
+        address = ast->unary.val;
     else
     {
         address            = mkast(A_UNARY);
@@ -464,82 +468,98 @@ static struct ast *memaccess(struct ast *ast)
     return deref;
 }
 
-static struct ast *post(struct ast *ast)
+//  x[10].x = 10;
+//  *(&(*(&x + 10)) + offsetof(x))) = 10;
+//  *(&x + 10 + offsetof(x)) = 10;
+
+static struct ast *post(struct ast *branch)
 {
-    switch (curr()->type)
+    struct ast *ast = branch;
+
+    while (1)
     {
-        case T_LBRACK:
+        switch (curr()->type)
         {
-            if (!ast->vtype.arrlen && !ast->vtype.ptr)
-                error("Use of subscript operator '[]' on non-array or pointer type.\n");
-
-            next();
-
-            struct ast *binop = mkast(A_BINOP);
-            binop->binop.op   = OP_PLUS;
-            binop->binop.lhs  = ast;
-            binop->binop.rhs  = mkast(A_SCALE); // TODO: fix this - it does not work
-            binop->binop.rhs->scale.val = pre();
-            binop->binop.rhs->scale.num = asm_sizeof(mktype(ast->vtype.name, 0, 0));
-            binop->vtype      = mktype(ast->vtype.name, 0, 1);
-
-            struct ast *access = mkunary(OP_DEREF, binop);
-            access->vtype = binop->vtype;
-            access->vtype.ptr--;
-            expect(T_RBRACK);
-            return access;
-        }
-        case T_LPAREN:
-        {
-            if (ast->vtype.name != TYPE_FUNC)
-                error("Call of non-function or function-pointer type.\n");
-
-            struct ast *call = mkast(A_CALL);
-
-            if (ast->vtype.ptr)
-                call->call.ast = ast;
-            else
+            case T_LBRACK:
             {
-                call->call.ast            = mkast(A_UNARY);
-                call->call.ast->vtype     = ast->vtype;
-                call->call.ast->unary.op  = OP_ADDROF;
-                call->call.ast->unary.val = ast;
+                if (!ast->vtype.arrlen && !ast->vtype.ptr)
+                    error("Use of subscript operator '[]' on non-array or pointer type.\n");
+
+                next();
+
+                struct type cpy = ast->vtype;
+                if (cpy.arrlen) { cpy.ptr++; cpy.arrlen = 0; }
+                struct type ptrd = cpy;
+                if (ptrd.ptr) ptrd.ptr--;
+
+                struct ast *binop = mkast(A_BINOP);
+                binop->binop.op   = OP_PLUS;
+                binop->binop.lhs  = ast->type == A_UNARY && ast->unary.op == OP_DEREF ? ast->unary.val : ast;
+                binop->binop.rhs  = mkast(A_SCALE); // TODO: fix this - it does not work
+                binop->binop.rhs->scale.val = pre();
+                binop->binop.rhs->scale.num = asm_sizeof(ptrd);
+                binop->vtype      = cpy;
+
+                struct ast *access = mkunary(OP_DEREF, binop);
+                access->vtype = ptrd;
+                expect(T_RBRACK);
+                ast = access;
+                break;
+            }
+            case T_LPAREN:
+            {
+                if (ast->vtype.name != TYPE_FUNC)
+                    error("Call of non-function or function-pointer type.\n");
+
+                struct ast *call = mkast(A_CALL);
+
+                if (ast->vtype.ptr)
+                    call->call.ast = ast;
+                else
+                {
+                    call->call.ast            = mkast(A_UNARY);
+                    call->call.ast->vtype     = ast->vtype;
+                    call->call.ast->unary.op  = OP_ADDROF;
+                    call->call.ast->unary.val = ast;
+                }
+
+                call->vtype = *ast->vtype.func.ret;
+
+                next();
+                unsigned int i;
+                for (i = 0; curr()->type != T_RPAREN; i++)
+                {
+                    call->call.params = realloc(call->call.params, (ast->call.paramcnt + 1) * sizeof(struct ast*));
+                    call->call.params[call->call.paramcnt++] = binexpr();
+
+                    if (curr()->type != T_RPAREN) expect(T_COMMA);
+                }
+                expect(T_RPAREN);
+
+                if (i < ast->vtype.func.paramcnt)
+                    error("Too few parameters in call to function\n");
+                else if (i > ast->vtype.func.paramcnt && !ast->vtype.func.variadic)
+                    error("Too many parameters in call to function\n");
+
+                ast = call;
+                break;
+            }
+            case T_DOT:
+            case T_ARROW: ast = memaccess(ast); break;
+
+            case T_INC:
+            case T_DEC:
+            {
+                struct ast *inc = mkast(curr()->type == T_INC ? A_POSTINC : A_POSTDEC);
+                next();
+                inc->vtype = ast->vtype;
+                inc->incdec.val = ast;
+                ast = inc;
+                break;
             }
 
-            call->vtype = *ast->vtype.func.ret;
-
-            next();
-            unsigned int i;
-            for (i = 0; curr()->type != T_RPAREN; i++)
-            {
-                call->call.params = realloc(call->call.params, (ast->call.paramcnt + 1) * sizeof(struct ast*));
-                call->call.params[call->call.paramcnt++] = binexpr();
-
-                if (curr()->type != T_RPAREN) expect(T_COMMA);
-            }
-            expect(T_RPAREN);
-
-            if (i < ast->vtype.func.paramcnt)
-                error("Too few parameters in call to function\n");
-            else if (i > ast->vtype.func.paramcnt && !ast->vtype.func.variadic)
-                error("Too many parameters in call to function\n");
-
-            return call;
+            default: return ast;
         }
-        case T_DOT:
-        case T_ARROW: return memaccess(ast);
-
-        case T_INC:
-        case T_DEC:
-        {
-            struct ast *inc = mkast(curr()->type == T_INC ? A_POSTINC : A_POSTDEC);
-            next();
-            inc->vtype = ast->vtype;
-            inc->incdec.val = ast;
-            return inc;
-        }
-
-        default: return ast;
     }
 }
 
