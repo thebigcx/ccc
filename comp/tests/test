@@ -14,6 +14,8 @@ struct Structure
 
 var public x: int32;
 
+var y: Structure[2];
+
 fn public main(argc: int32, argv: int8**)
 {
     var st: Structure[2];

@@ -69,6 +69,12 @@ enum AST_TYPE
     A_TERNARY
 };
 
+struct rostr
+{
+    char *val;
+    int  lbl;
+};
+
 struct ast
 {
     int type, lvalue; // TODO: I don't like this 'lvalue' nonsense for determining if a dereference is a load or store - come up with a better way
@@ -112,6 +118,8 @@ struct ast
             struct ast **statements;
             unsigned int cnt;
             struct symtable symtab;
+            struct rostr *strs;
+            unsigned int strcnt;
         } block;
 
         struct
@@ -149,7 +157,7 @@ struct ast
 
         struct
         {
-            char *str;
+            unsigned int idx;
         } strlit;
 
         struct
@@ -190,6 +198,7 @@ struct ast
         } ternary;
     };
 };
+
 
 struct token;
 

@@ -14,6 +14,7 @@ struct parser
     size_t i;
     struct symtable *currscope;
     struct ast      *currfunc;
+    struct ast      *globlscope;
 };
 
 static struct parser s_parser;
@@ -603,7 +604,29 @@ static struct ast *primary()
         case T_STRLIT:
             ast = mkast(A_STRLIT);
             ast->vtype = mktype(TYPE_INT8, 0, 1); // int8*
-            ast->strlit.str = strdup(curr()->v.sval);
+            ast->strlit.idx = UINT32_MAX;
+
+            for (unsigned int i = 0; i < s_parser.globlscope->block.strcnt; i++)
+            {
+                if (!strcmp(s_parser.globlscope->block.strs[i].val, curr()->v.sval))
+                {
+                    ast->strlit.idx = i;
+                    break;
+                }
+            }
+
+            if (ast->strlit.idx == UINT32_MAX)
+            {
+                ast->strlit.idx = s_parser.globlscope->block.strcnt;
+
+                s_parser.globlscope->block.strs = realloc(s_parser.globlscope->block.strs, (s_parser.globlscope->block.strcnt + 1) * sizeof(struct rostr));
+                s_parser.globlscope->block.strs[s_parser.globlscope->block.strcnt++] = (struct rostr)
+                {
+                    .val = strdup(curr()->v.sval),
+                    .lbl = 0
+                };
+            }
+
             next();
             return ast;
         case T_LPAREN: return post(parenexpr());
@@ -1177,11 +1200,13 @@ static struct ast *block(struct ast *block, int type)
 
 int parse(struct token *toks, struct ast *ast)
 {
-    s_parser.toks      = toks;
-    s_parser.i         = 0;
-    s_parser.currscope = NULL;
-    
     struct ast *tree = mkast(A_BLOCK);
+    
+    s_parser.toks       = toks;
+    s_parser.i          = 0;
+    s_parser.currscope  = NULL;
+    s_parser.globlscope = tree;
+
     block(tree, SYMTAB_GLOB);
     memcpy(ast, tree, sizeof(struct ast));
 

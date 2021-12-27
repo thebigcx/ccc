@@ -11,6 +11,7 @@ static const char *regs32[] = { "%r8d", "%r9d", "%r10d", "%r11d" };
 static const char *regs64[] = { "%r8",  "%r9",  "%r10",  "%r11" };
 
 static struct symtable *s_currscope = NULL;
+static struct ast      *s_globlscope = NULL;
 
 #define REGCNT (sizeof(regs64) / sizeof(regs64[0]))
 #define NOREG (-1)
@@ -544,9 +545,7 @@ static int gen_for(struct ast *ast, FILE *file)
 static int gen_strlit(struct ast *ast, FILE *file)
 {
     int r = regalloc();
-    int l = add_string(ast->strlit.str, file);
-
-    fprintf(file, "\tleaq\tL%d(%%rip), %s\n", l, regs64[r]);
+    fprintf(file, "\tleaq\tL%d(%%rip), %s\n", s_globlscope->block.strs[ast->strlit.idx].lbl, regs64[r]);
     return r;
 }
 
@@ -690,23 +689,59 @@ int gen_code(struct ast *ast, FILE *file)
     return NOREG;
 }
 
+void gen_datavar(struct type t, FILE *file)
+{
+    if (t.arrlen)
+    {
+        struct type base = t;
+        base.arrlen = 0;
+
+        for (int i = 0; i < t.arrlen; i++)
+            gen_datavar(base, file);
+    }
+    else if (t.name == TYPE_STRUCT)
+    {
+        for (unsigned int i = 0; i < t.struc.memcnt; i++)
+            gen_datavar(t.struc.members[i].type, file);
+    }
+    else if (t.ptr)
+        fprintf(file, "\t.long 0\n");
+    else
+    {
+        switch (asm_sizeof(t))
+        {
+            case 1: fprintf(file, "\t.byte  0\n"); break;
+            case 2: fprintf(file, "\t.short 0\n"); break;
+            case 4: fprintf(file, "\t.int   0\n"); break;
+            case 8: fprintf(file, "\t.long  0\n"); break;
+        }
+    }
+}
+
 void gen_ast(struct ast *ast, FILE *file)
 {
+    s_globlscope = ast;
+
+    fprintf(file, "\t.section .rodata\n");
+
+    for (unsigned int i = 0; i < ast->block.strcnt; i++)
+        fprintf(file, "L%d: .string \"%s\"\n", ast->block.strs[i].lbl = label(), ast->block.strs[i].val);
+
+    fprintf(file, "\t.section .data\n");
+
     for (unsigned int i = 0; i < ast->block.symtab.cnt; i++)
     {
         struct sym *sym = &ast->block.symtab.syms[i];
         if (sym->attr & SYM_GLOBAL && !(sym->type.name == TYPE_FUNC && !sym->type.ptr))
         {
-            // TODO: fix this
-            //fprintf(file, "\t.section .data\n");
-
             if (sym->attr & SYM_PUBLIC)
                 fprintf(file, "\t.global %s\n", sym->name);
-            fprintf(file, "\t.comm %s, %lu\n", sym->name, asm_sizeof(sym->type));
-
-            //fprintf(file, "\t.section .text\n");
+            fprintf(file, "%s:\n", sym->name);
+            
+            gen_datavar(sym->type, file); 
         }
     }
 
+    fprintf(file, "\t.section .text\n");
     gen_code(ast, file);
 }
