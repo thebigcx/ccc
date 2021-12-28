@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#define CMPEXPR(ast) (ast->type == A_BINOP && ((ast->binop.op > OP_LT && ast->binop.op < OP_NEQUAL) || ast->binop.op == OP_LAND || ast->binop.op == OP_LOR))
+
 static const char *regs8[]  = { "%r8b", "%r9b", "%r10b", "%r11b" };
 static const char *regs16[] = { "%r8w", "%r9w", "%r10w", "%r11w" };
 static const char *regs32[] = { "%r8d", "%r9d", "%r10d", "%r11d" };
@@ -49,7 +51,7 @@ static void regfree(int r)
     reglist[r] = 0;
 }
 
-static const char *set_instructions[] =
+static const char *setinsts[] =
 {
     [OP_EQUAL]  = "sete",
     [OP_NEQUAL] = "setne",
@@ -57,6 +59,16 @@ static const char *set_instructions[] =
     [OP_LT]     = "setl",
     [OP_GTE]    = "setge",
     [OP_LTE]    = "setle"
+};
+
+static const char *jmpinsts[] =
+{
+    [OP_EQUAL]  = "jne",
+    [OP_NEQUAL] = "je",
+    [OP_GT]     = "jl",
+    [OP_LT]     = "jg",
+    [OP_GTE]    = "jle",
+    [OP_LTE]    = "jge"
 };
 
 static int add_string(const char *str, FILE *file)
@@ -224,16 +236,26 @@ static int gen_bitxor(int r1, int r2, FILE *file)
     return r1;
 }
 
-static int gen_cmp(int r1, int r2, int op, FILE *file)
+static int gen_cmpandset(int r1, int r2, int op, FILE *file)
 {
     int r = regalloc();
     fprintf(file, "\tcmpq\t%s, %s\n", regs64[r2], regs64[r1]);
-    fprintf(file, "\t%s\t%%al\n", set_instructions[op]);
+    fprintf(file, "\t%s\t%%al\n", setinsts[op]);
     fprintf(file, "\tmovzx\t%%al, %s\n", regs64[r]);
     
     regfree(r1);
     regfree(r2);
     return r;
+}
+
+// Compare two registers and jmp past code block
+static int gen_cmpandjmp(int r1, int r2, int op, int lbl, FILE *file)
+{
+    fprintf(file, "\tcmpq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(file, "\t%s\tL%d\n", jmpinsts[op], lbl);
+    regfree(r1);
+    regfree(r2);
+    return NOREG;
 }
 
 // Assignment binary expressions e.g. x = 10, x += 2, *x /= 2, etc
@@ -262,53 +284,61 @@ static int gen_assign(int r1, int r2, struct ast *ast, FILE *file)
     }
 }
 
-static int gen_logand(int r1, int r2, FILE *file)
-{
-    fprintf(file, "\tandq\t%s, %s\n", regs64[r1], regs64[r2]);
-    fprintf(file, "\tandq\t$1, %s\n", regs64[r2]);
-    regfree(r1);
-    return r2;
-}
-
-static int gen_logor(int r1, int r2, FILE *file)
-{
-    fprintf(file, "\torq\t%s, %s\n", regs64[r1], regs64[r2]);
-    fprintf(file, "\tandq\t$1, %s\n", regs64[r2]);
-    regfree(r1);
-    return r2;
-}
-
 static int gen_lazyeval(struct ast *ast, FILE *file)
 {
     int end = label();
 
     int r1 = gen_code(ast->binop.lhs, file);
 
-    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r1]);
+    fprintf(file, "\ttest\t%s, %s\n", regs64[r1], regs64[r1]);
+
     if (ast->binop.op == OP_LAND)
         fprintf(file, "\tjz\tL%d\n", end);
     else if (ast->binop.op == OP_LOR)
         fprintf(file, "\tjnz\tL%d\n", end);
 
-    int r2 = gen_code(ast->binop.rhs, file);
-
-    switch (ast->binop.op)
+    if (!CMPEXPR(ast->binop.lhs))
     {
-        case OP_LAND: fprintf(file, "\tandq\t%s, %s\n", regs64[r2], regs64[r1]); break;
-        case OP_LOR:  fprintf(file, "\torq\t%s, %s\n", regs64[r2], regs64[r1]); break;
+        fprintf(file, "\tsetne\t%s\n", regs8[r1]);
+        fprintf(file, "\tmovzbq\t%s, %s\n", regs8[r1], regs64[r1]);
     }
-    regfree(r2);
 
-    fprintf(file, "L%d:\n", end);
-    
-    int ret = regalloc();
-
-    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r1]);
-    fprintf(file, "\tsetne\t%%al\n");
-    fprintf(file, "\tmovzx\t%%al, %s\n", regs64[ret]);
+    int r2 = gen_code(ast->binop.rhs, file);
+    if (!CMPEXPR(ast->binop.rhs))
+    {
+        fprintf(file, "\ttest\t%s, %s\n", regs64[r2], regs64[r2]);
+        fprintf(file, "\tsetne\t%s\n", regs8[r2]);
+        fprintf(file, "\tmovzbq\t%s, %s\n", regs8[r2], regs64[r2]);
+    }
 
     regfree(r1);
-    return ret;
+    fprintf(file, "L%d:\n", end);
+    return r2;
+}
+
+static int gen_lazyevaljmp(int lbl, struct ast *ast, FILE *file)
+{
+    int r1 = gen_code(ast->binop.lhs, file);
+
+    fprintf(file, "\ttest\t%s, %s\n", regs64[r1], regs64[r1]);
+
+    if (ast->binop.op == OP_LAND)
+        fprintf(file, "\tjz\tL%d\n", lbl);
+    else if (ast->binop.op == OP_LOR)
+        fprintf(file, "\tjnz\tL%d\n", lbl);
+
+    if (!CMPEXPR(ast->binop.lhs))
+    {
+        fprintf(file, "\tsetne\t%s\n", regs8[r1]);
+        fprintf(file, "\tmovzbq\t%s, %s\n", regs8[r1], regs64[r1]);
+    }
+
+    int r2 = gen_code(ast->binop.rhs, file);
+    fprintf(file, "\ttest\t%s, %s\n", regs64[r2], regs64[r2]);
+    fprintf(file, "\tjnz\tL%d\n", lbl);
+    regfree(r1);
+    regfree(r2);
+    return NOREG;
 }
 
 static int gen_binop(struct ast *ast, FILE *file)
@@ -333,7 +363,7 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_GT:
         case OP_LT:
         case OP_GTE:
-        case OP_LTE:    return gen_cmp(r1, r2, ast->binop.op, file);
+        case OP_LTE:    return gen_cmpandset(r1, r2, ast->binop.op, file);
         case OP_ASSIGN:
         case OP_PLUSEQ:
         case OP_MINUSEQ:
@@ -345,8 +375,6 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_SHLEQ:
         case OP_SHREQ:
         case OP_MODEQ:  return gen_assign(r1, r2, ast, file);
-        case OP_LAND:   return gen_logand(r1, r2, file);
-        case OP_LOR:    return gen_logor(r1, r2, file);
         case OP_BITAND: return gen_bitand(r1, r2, file);
         case OP_BITOR:  return gen_bitor(r1, r2, file);
         case OP_BITXOR: return gen_bitxor(r1, r2, file);
@@ -357,8 +385,9 @@ static int gen_binop(struct ast *ast, FILE *file)
 
 static int gen_lognot(int r, FILE *file)
 {
-    fprintf(file, "\tnotq\t%s\n", regs64[r]);
-    fprintf(file, "\tandq\t$1, %s\n", regs64[r]);
+    fprintf(file, "\ttest\t%s, %s\n", regs64[r], regs64[r]);
+    fprintf(file, "\tsete\t%s\n", regs8[r]);
+    fprintf(file, "\tmovzbq\t%s, %s\n", regs8[r], regs64[r]);
     return r;
 }
 
@@ -540,17 +569,30 @@ static int gen_return(struct ast *ast, FILE *file)
 
 static int gen_ifelse(struct ast *ast, FILE *file)
 {
-    int r = gen_code(ast->ifelse.cond, file);
-
     int elselbl = -1;
     if (ast->ifelse.elseblock) elselbl = label();
     
     int endlbl = label();
 
-    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r]);
-    fprintf(file, "\tjz\tL%d\n", elselbl != -1 ? elselbl : endlbl);
-
-    regfree(r);
+    struct ast *cond = ast->ifelse.cond;
+    if (CMPEXPR(cond))
+    {
+        if (cond->binop.op == OP_LAND || cond->binop.op == OP_LOR)
+            gen_lazyevaljmp(elselbl != -1 ? elselbl : endlbl, cond, file);
+        else
+        {
+            int r1 = gen_code(cond->binop.lhs, file);
+            int r2 = gen_code(cond->binop.rhs, file);
+            gen_cmpandjmp(r1, r2, cond->binop.op, elselbl != -1 ? elselbl : endlbl, file);
+        }
+    }
+    else
+    {
+        int r = gen_code(cond, file);
+        fprintf(file, "\tcmpq\t$0, %s\n", regs64[r]);
+        fprintf(file, "\tjz\tL%d\n", elselbl != -1 ? elselbl : endlbl);
+        regfree(r);
+    }
 
     DISCARD(gen_code(ast->ifelse.ifblock, file));
     

@@ -2,12 +2,9 @@
 
 fn public main(argc: int32, argv: int8**) -> int32
 {
-    var x = 10;
-    var y = (int32*)0;
-
-    if ((uint64)y && *y == 10)
+    if ((uint64)argv && argv[0][0] == '.')
     {
-        printf("y == 10\n");
+        printf(".\n");
     }
     return 0;
 }
