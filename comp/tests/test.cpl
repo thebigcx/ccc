@@ -1,8 +1,10 @@
 #include "tests/stdio.h"
 
+#define FOO '.'
+
 fn public main(argc: int32, argv: int8**) -> int32
 {
-    if ((uint64)argv && argv[0][0] == '.')
+    if ((uint64)argv && argv[0][0] == FOO)
     {
         printf(".\n");
     }

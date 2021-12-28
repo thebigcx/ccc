@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 struct define
 {
@@ -45,6 +46,37 @@ char *preprocess(const char *code, const char *infilename)
     fprintf(output, "# 1 \"%s\"\n", infilename);
     while ((token = strsep(&input, "\n")))
     {
+        char *substr = token;
+        char *end    = substr;
+        while (*end)
+        {
+            if (!isalpha(*end) && *end != '_')
+            {
+                if (end - substr)
+                {
+                    char *buf = malloc(end - substr + 1);
+                    strncpy(buf, substr, end - substr);
+                    buf[end - substr] = 0;
+
+                    for (unsigned int i = 0; i < s_definecnt; i++)
+                    {
+                        if (!strcmp(s_defines[i].name, buf))
+                        {
+                            char *tmp = calloc(1, strlen(token) - strlen(buf) + strlen(s_defines[i].val) + 1);
+                            strncat(tmp, token, substr - token);
+                            strcat(tmp, s_defines[i].val);
+                            strcat(tmp, end);
+                            token = tmp;
+                        }
+                    }
+                    free(buf);
+                }
+                end++;
+                substr = end;
+            }
+            else end++;
+        }
+
         if (token[0] == '#')
         {
             if (!strcmp(++token, "endif"))
