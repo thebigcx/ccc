@@ -4,7 +4,7 @@ fn public main(argc: int32, argv: int8**) -> int32
 {
     if ((uint64)argv && argv[0][0] == '.')
     {
-        printf("%lu\n", 1 + 2);
+        printf(".\n");
     }
     return 0;
 }

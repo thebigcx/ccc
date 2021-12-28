@@ -71,8 +71,10 @@ struct ast *fold(struct ast *ast)
             
             case OP_DIV:
                 if (rhs->intlit.ival) return mkintlit(lhs->intlit.ival / rhs->intlit.ival, lhs->vtype);
+                break;
             case OP_MOD:
                 if (rhs->intlit.ival) return mkintlit(lhs->intlit.ival % rhs->intlit.ival, lhs->vtype);
+                break;
         }
     }
     else if (ast->type == A_SCALE)

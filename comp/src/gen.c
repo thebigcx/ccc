@@ -321,22 +321,16 @@ static int gen_lazyevaljmp(int lbl, struct ast *ast, FILE *file)
     int r1 = gen_code(ast->binop.lhs, file);
 
     fprintf(file, "\ttest\t%s, %s\n", regs64[r1], regs64[r1]);
-
+    regfree(r1);
+    
     if (ast->binop.op == OP_LAND)
         fprintf(file, "\tjz\tL%d\n", lbl);
     else if (ast->binop.op == OP_LOR)
         fprintf(file, "\tjnz\tL%d\n", lbl);
 
-    if (!CMPEXPR(ast->binop.lhs))
-    {
-        fprintf(file, "\tsetne\t%s\n", regs8[r1]);
-        fprintf(file, "\tmovzbq\t%s, %s\n", regs8[r1], regs64[r1]);
-    }
-
     int r2 = gen_code(ast->binop.rhs, file);
     fprintf(file, "\ttest\t%s, %s\n", regs64[r2], regs64[r2]);
     fprintf(file, "\tjnz\tL%d\n", lbl);
-    regfree(r1);
     regfree(r2);
     return NOREG;
 }
@@ -532,15 +526,22 @@ static int gen_call(struct ast *ast, FILE *file)
         regfree(par);
     }
 
-    int r = gen_code(ast->call.ast, file);
-
+    const char *fn;
+    if (ast->call.ast->type == A_UNARY && ast->call.ast->unary.op == OP_ADDROF
+        && ast->call.ast->unary.val->type == A_IDENT)
+        fn = ast->call.ast->unary.val->ident.name;
+    else
+    {
+        int r = gen_code(ast->call.ast, file);
+        fn = regs64[r];
+        regfree(r); // A bit dodgy, makes for better looking code
+    }
+    
     if (ast->call.ast->vtype.func.variadic)
         fprintf(file, "\txorq\t%%rax, %%rax\n");
-
-    fprintf(file, "\tcallq\t*%s\n", regs64[r]);
-    regfree(r);
-
-    r = regalloc();
+    fprintf(file, "\tcallq\t%s\n", fn);
+    
+    int r = regalloc();
     fprintf(file, "\tmovq\t%%rax, %s\n", regs64[r]);
     return r;
 }
