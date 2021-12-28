@@ -202,4 +202,6 @@ struct ast
 
 struct token;
 
+struct ast *mkast(int type);
+struct ast *mkunary(int op, struct ast *val);
 int parse(struct token *toks, struct ast *ast);

@@ -1,6 +1,7 @@
 #include <parser.h>
 #include <lexer.h>
 #include <asm.h>
+#include <opt.h>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -55,14 +56,14 @@ static void error(const char *msg, ...)
     exit(-1);
 }
 
-static struct ast *mkast(int type)
+struct ast *mkast(int type)
 {
     struct ast *ast = calloc(1, sizeof(struct ast));
     ast->type = type;
     return ast;
 }
 
-static struct ast *mkunary(int op, struct ast *val)
+struct ast *mkunary(int op, struct ast *val)
 {
     struct ast *ast = mkast(A_UNARY);
     ast->unary.op   = op;
@@ -749,7 +750,7 @@ static struct ast *recurse_binexpr(int ptp)
 
 static struct ast *binexpr()
 {
-    return recurse_binexpr(15);
+    return fold(recurse_binexpr(15));
 }
 
 static struct ast *inlineasm()
