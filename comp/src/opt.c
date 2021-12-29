@@ -1,5 +1,5 @@
 #include <opt.h>
-#include <parser.h>
+#include <ast.h>
 
 struct ast *mkintlit(unsigned int val, struct type t)
 {

@@ -2,6 +2,7 @@
 #include <lexer.h>
 #include <asm.h>
 #include <opt.h>
+#include <ast.h>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -54,21 +55,6 @@ static void error(const char *msg, ...)
     va_end(list);
 
     exit(-1);
-}
-
-struct ast *mkast(int type)
-{
-    struct ast *ast = calloc(1, sizeof(struct ast));
-    ast->type = type;
-    return ast;
-}
-
-struct ast *mkunary(int op, struct ast *val)
-{
-    struct ast *ast = mkast(A_UNARY);
-    ast->unary.op   = op;
-    ast->unary.val  = val;
-    return ast;
 }
 
 // Terminator

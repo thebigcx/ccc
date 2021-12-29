@@ -6,6 +6,7 @@
 #include <preproc.h>
 #include <lexer.h>
 #include <parser.h>
+#include <ast.h>
 #include <gen.h>
 #include <util.h>
 

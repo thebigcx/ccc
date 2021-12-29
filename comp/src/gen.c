@@ -1,6 +1,7 @@
 #include <gen.h>
 #include <sym.h>
 #include <asm.h>
+#include <ast.h>
 
 #include <assert.h>
 #include <stdlib.h>
