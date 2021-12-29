@@ -540,7 +540,10 @@ static int gen_call(struct ast *ast, FILE *file)
     if (ast->call.ast->vtype.func.variadic)
         fprintf(file, "\txorq\t%%rax, %%rax\n");
     fprintf(file, "\tcallq\t%s\n", fn);
-    
+
+    if (ast->vtype.name == TYPE_VOID && !ast->vtype.ptr)
+        return NOREG;
+
     int r = regalloc();
     fprintf(file, "\tmovq\t%%rax, %s\n", regs64[r]);
     return r;

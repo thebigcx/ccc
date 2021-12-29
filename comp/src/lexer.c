@@ -91,13 +91,14 @@ static void pushi(unsigned long i)
 static void pushasm()
 {
     while (*s_lexer.str++ != '{');
-    while (*s_lexer.str++ != '\n');
+    s_lexer.str++;
 
     char asmbuf[1024]; // TODO: dynamic
     char *asmptr = asmbuf;
 
     while (*s_lexer.str != '}') *asmptr++ = *s_lexer.str++;
-    *asmptr = 0;
+    *asmptr++ = '\n';
+    *asmptr   = 0;
     s_lexer.str++;
 
     push((struct token) { .type = T_ASM, .v.sval = strdup(asmbuf) });
@@ -172,7 +173,9 @@ int tokenize(const char *str, struct token **toks)
             
             case '-':
             {
-                switch (*(++s_lexer.str))
+                if (isdigit(*(s_lexer.str + 1)))
+                    pushi(strtoll(s_lexer.str, (char**)&s_lexer.str, 10));
+                else switch (*(++s_lexer.str))
                 {
                     case '-': pushnv(T_DEC); s_lexer.str++; break;
                     case '=': pushnv(T_MINUSEQ); s_lexer.str++; break;

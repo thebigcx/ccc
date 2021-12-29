@@ -9,7 +9,7 @@ fn public main()
     {
         printf("%lu\n", x);
         
-        var z: uint64 = x;
+        var z = x;
         x += y;
         y = z;
     }
