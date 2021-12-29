@@ -399,12 +399,7 @@ static struct ast *memaccess(struct ast *ast)
     else if (ast->type == A_UNARY && ast->unary.op == OP_DEREF)
         address = ast->unary.val;
     else
-    {
-        address            = mkast(A_UNARY);
-        address->vtype     = mktype(TYPE_UINT64, 0, 0);
-        address->unary.op  = OP_ADDROF;
-        address->unary.val = ast;
-    }
+        address = mkunary(OP_ADDROF, ast, mktype(TYPE_UINT64, 0, 0));
 
     struct type structype = ast->vtype;
     ast = address;
@@ -439,25 +434,14 @@ static struct ast *memaccess(struct ast *ast)
         if (!member)
             error("Struct does not contain member '%s'\n", name);
 
-        struct ast *offset  = mkast(A_INTLIT);
-        offset->vtype       = ast->vtype;
-        offset->intlit.ival = member->offset;
-
-        struct ast *add     = mkast(A_BINOP);
-        add->vtype          = offset->vtype;
-        add->binop.op       = OP_PLUS;
-        add->binop.lhs      = ast;
-        add->binop.rhs      = offset;
+        struct ast *off = mkintlit(member->offset, ast->vtype);
+        struct ast *add = mkbinop(OP_PLUS, ast, off, off->vtype);
 
         structype = member->type;
         ast = add;
     }
 
-    struct ast *deref   = mkast(A_UNARY);
-    deref->vtype        = member->type;
-    deref->unary.op     = OP_DEREF;
-    deref->unary.val    = ast;
-
+    struct ast *deref = mkunary(OP_DEREF, ast, member->type);
     if (curr()->type == T_DOT)
         return memaccess(deref);
 
@@ -488,13 +472,9 @@ static struct ast *post(struct ast *branch)
                 struct type ptrd = cpy;
                 if (ptrd.ptr) ptrd.ptr--;
 
-                struct ast *binop = mkast(A_BINOP);
-                binop->binop.op   = OP_PLUS;
-                binop->binop.lhs  = ast->type == A_UNARY && ast->unary.op == OP_DEREF ? ast->unary.val : ast;
-                binop->binop.rhs  = mkast(A_SCALE); // TODO: fix this - it does not work
+                struct ast *binop = mkbinop(OP_PLUS, ast->type == A_UNARY && ast->unary.op == OP_DEREF ? ast->unary.val : ast, mkast(A_SCALE), cpy);
                 binop->binop.rhs->scale.val = pre();
                 binop->binop.rhs->scale.num = asm_sizeof(ptrd);
-                binop->vtype      = cpy;
 
                 struct ast *access = mkunary(OP_DEREF, binop, ptrd);
                 expect(T_RBRACK);
@@ -511,12 +491,7 @@ static struct ast *post(struct ast *branch)
                 if (ast->vtype.ptr)
                     call->call.ast = ast;
                 else
-                {
-                    call->call.ast            = mkast(A_UNARY);
-                    call->call.ast->vtype     = ast->vtype;
-                    call->call.ast->unary.op  = OP_ADDROF;
-                    call->call.ast->unary.val = ast;
-                }
+                    call->call.ast = mkunary(OP_ADDROF, ast, ast->vtype);
 
                 call->vtype = *ast->vtype.func.ret;
 
@@ -560,15 +535,7 @@ static struct ast *post(struct ast *branch)
 
 static struct ast *intlit()
 {
-    struct ast *ast = mkast(A_INTLIT);
-
-    if (curr()->v.ival < UINT32_MAX)
-        ast->vtype = mktype(TYPE_UINT32, 0, 0);
-    else
-        ast->vtype = mktype(TYPE_UINT64, 0, 0);
-
-    ast->intlit.ival = curr()->v.ival;
-    return ast;
+    return mkintlit(curr()->v.ival, curr()->v.ival < UINT32_MAX ? mktype(TYPE_UINT32, 0, 0) : mktype(TYPE_UINT64, 0, 0));
 }
 
 static struct ast *primary()
@@ -704,15 +671,10 @@ static struct ast *recurse_binexpr(int ptp)
             return ternary;
         }
 
-        struct ast *expr = mkast(A_BINOP);
-        expr->binop.lhs = lhs;
-        expr->binop.rhs = rhs;
-        expr->binop.op  = op;
+        struct ast *expr = mkbinop(op, lhs, rhs, lhs->vtype);
 
         if (!type_compatible(lhs->vtype, rhs->vtype))
             error("Incompatible types in binary expression.\n");
-
-        expr->vtype = lhs->vtype; // TODO: weak type conversion
 
         if (op == OP_ASSIGN)
         {
@@ -890,22 +852,19 @@ static struct ast *vardecl()
         expect(T_EQ);
         struct ast *init = binexpr();
 
-        ast = mkast(A_BINOP);
-        ast->binop.op = OP_ASSIGN;
-        ast->binop.rhs = init;
-        ast->binop.lhs = mkast(A_IDENT);
-        ast->binop.lhs->ident.name = strdup(name);
-
-        ast->binop.rhs->lvalue = 0;
-        ast->binop.lhs->lvalue = 1;
-
         if (autov)
-            t = ast->binop.rhs->vtype;
+            t = init->vtype;
         else
         {
             if (!type_compatible(ast->binop.rhs->vtype, t))
                 error("Incompatible types in variable initialization\n");
         }
+
+        ast = mkbinop(OP_ASSIGN, mkast(A_IDENT), init, t);
+        ast->binop.lhs->ident.name = strdup(name);
+
+        ast->binop.rhs->lvalue = 0;
+        ast->binop.lhs->lvalue = 1;
     }
 
     sym_put(s_parser.currscope, name, t, attr);

@@ -201,3 +201,5 @@ struct ast
 
 struct ast *mkast(int type);
 struct ast *mkunary(int op, struct ast *val, struct type t);
+struct ast *mkbinop(int op, struct ast *lhs, struct ast *rhs, struct type t);
+struct ast *mkintlit(unsigned long val, struct type t);

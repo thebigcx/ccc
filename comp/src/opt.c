@@ -1,14 +1,6 @@
 #include <opt.h>
 #include <ast.h>
 
-struct ast *mkintlit(unsigned int val, struct type t)
-{
-    struct ast *ast  = mkast(A_INTLIT);
-    ast->vtype       = t;
-    ast->intlit.ival = val;
-    return ast;
-}
-
 struct ast *fold(struct ast *ast)
 {
     if (ast->type == A_UNARY)
