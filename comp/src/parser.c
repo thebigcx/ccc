@@ -330,18 +330,17 @@ static struct ast *parenexpr()
 
 static struct ast *pre()
 {
-    struct ast *ast;
+    struct ast *ast, *val;
 
     switch (curr()->type)
     {
         case T_AMP: // TODO: type checking: must be an lvalue
         {
             next();
-            struct ast *val = pre();
+            val = pre();
             if (val->type == A_UNARY && val->unary.op == OP_DEREF) return val->unary.val;
             
-            ast = mkunary(OP_ADDROF, val);
-            ast->vtype = ast->unary.val->vtype;
+            ast = mkunary(OP_ADDROF, val, val->vtype);
             if (val->type != A_IDENT)
                 error("Invalid use of address-of operator.\n");
             ast->vtype.ptr++;
@@ -350,29 +349,30 @@ static struct ast *pre()
 
         case T_STAR:
             next();
-            ast = mkunary(OP_DEREF, pre());
-            if (!ast->unary.val->vtype.ptr)
+            val = pre();
+            ast = mkunary(OP_DEREF, val, val->vtype);
+            if (!val->vtype.ptr)
                 error("Cannot dereference non-pointer type.\n");
-            ast->vtype = ast->unary.val->vtype;
             ast->vtype.ptr--;
             return ast;
         case T_NOT:
             next();
-            ast = mkunary(OP_LOGNOT, pre());
-            ast->vtype = ast->unary.val->vtype;
+            val = pre();
+            ast = mkunary(OP_LOGNOT, val, val->vtype);
             if (!isintegral(ast->vtype) && !ast->vtype.ptr)
                 error("Logical not on non-integral or pointer type.\n");
             return ast;
         case T_BITNOT:
             next();
-            ast = mkunary(OP_BITNOT, pre());
-            ast->vtype = ast->unary.val->vtype;
+            val = pre();
+            ast = mkunary(OP_BITNOT, val, val->vtype);
             if (!isintegral(ast->vtype))
                 error("Bitwise not on non-integral type.\n");
             return ast;
         case T_MINUS:
             next();
-            ast = mkunary(OP_MINUS, pre());
+            val = pre();
+            ast = mkunary(OP_MINUS, val, val->vtype);
             ast->vtype = ast->unary.val->vtype;
             if (!isintegral(ast->vtype))
                 error("Unary minus on non-integral type.\n");
@@ -496,8 +496,7 @@ static struct ast *post(struct ast *branch)
                 binop->binop.rhs->scale.num = asm_sizeof(ptrd);
                 binop->vtype      = cpy;
 
-                struct ast *access = mkunary(OP_DEREF, binop);
-                access->vtype = ptrd;
+                struct ast *access = mkunary(OP_DEREF, binop, ptrd);
                 expect(T_RBRACK);
                 ast = access;
                 break;

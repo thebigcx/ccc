@@ -200,4 +200,4 @@ struct ast
 };
 
 struct ast *mkast(int type);
-struct ast *mkunary(int op, struct ast *val);
+struct ast *mkunary(int op, struct ast *val, struct type t);
