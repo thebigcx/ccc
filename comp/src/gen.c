@@ -8,23 +8,27 @@
 
 #define CMPEXPR(ast) (ast->type == A_BINOP && ((ast->binop.op > OP_LT && ast->binop.op < OP_NEQUAL) || ast->binop.op == OP_LAND || ast->binop.op == OP_LOR))
 
-/*#define CODE_INST 0
+// Only for the .text section
+#define CODE_INST 0
 #define CODE_REG  1
 #define CODE_LBL  2
 
 struct code
 {
+    struct code *lhs, *rhs;
     int type;
+    size_t size; // For determining registers and suffix
 
     union
     {
-        int v;
+        int ival;
         char *str;
     };
 };
 
 enum REGS
 {
+    REG_8,
     REG_AL,
     REG_BL,
     REG_CL,
@@ -40,6 +44,7 @@ enum REGS
     REG_R14B,
     REG_R15B,
 
+    REG_16,
     REG_AX,
     REG_BX,
     REG_CX,
@@ -55,6 +60,7 @@ enum REGS
     REG_R14W,
     REG_R15W,
 
+    REG_32,
     REG_EAX,
     REG_EBX,
     REG_ECX,
@@ -70,6 +76,7 @@ enum REGS
     REG_R14D,
     REG_R15D,
 
+    REG_64,
     REG_RAX,
     REG_RBX,
     REG_RCX,
@@ -84,7 +91,112 @@ enum REGS
     REG_R13,
     REG_R14,
     REG_R15,
-};*/
+};
+
+const char *regstrs[] =
+{
+    [REG_AL] = "%al",
+    [REG_BL] = "%bl",
+    [REG_CL] = "%cl",
+    [REG_DL] = "%dl",
+    [REG_SIL] = "%sil",
+    [REG_DIL] = "%dil",
+    [REG_R8B] = "%r8b",
+    [REG_R9B] = "%r9b",
+    [REG_R10B] = "%r10b",
+    [REG_R11B] = "%r11b",
+    [REG_R12B] = "%r12b",
+    [REG_R13B] = "%r13b",
+    [REG_R14B] = "%r14b",
+    [REG_R15B] = "%r15b",
+
+    [REG_AX] = "%ax",
+    [REG_BX] = "%bx",
+    [REG_CX] = "%cx",
+    [REG_DX] = "%dx",
+    [REG_SI] = "%si",
+    [REG_DI] = "%di",
+    [REG_R8W] = "%r8w",
+    [REG_R9W] = "%r9w",
+    [REG_R10W] = "%r10w",
+    [REG_R11W] = "%r11w",
+    [REG_R12W] = "%r12w",
+    [REG_R13W] = "%r13w",
+    [REG_R14W] = "%r14w",
+    [REG_R15W] = "%r15w",
+
+    [REG_EAX] = "%eax",
+    [REG_EBX] = "%ebx",
+    [REG_ECX] = "%ecx",
+    [REG_EDX] = "%edx",
+    [REG_ESI] = "%esi",
+    [REG_EDI] = "%edi",
+    [REG_R8D] = "%r8d",
+    [REG_R9D] = "%r9d",
+    [REG_R10D] = "%r10d",
+    [REG_R11D] = "%r11d",
+    [REG_R12D] = "%r12d",
+    [REG_R13D] = "%r13d",
+    [REG_R14D] = "%r14d",
+    [REG_R15D] = "%r15d",
+
+    [REG_RAX] = "%rax",
+    [REG_RBX] = "%rbx",
+    [REG_RCX] = "%rcx",
+    [REG_RDX] = "%rdx",
+    [REG_RSI] = "%rsi",
+    [REG_RDI] = "%rdi",
+    [REG_R8] = "%r8",
+    [REG_R9] = "%r9",
+    [REG_R10] = "%r10",
+    [REG_R11] = "%r11",
+    [REG_R12] = "%r12",
+    [REG_R13] = "%r13",
+    [REG_R14] = "%r14",
+    [REG_R15] = "%r15"
+};
+
+enum INSTS
+{
+    INST_MOV,
+    INST_LEA,
+    INST_ADD,
+    INST_SUB,
+    INST_IMUL,
+    INST_IDIV,
+    INST_PUSH,
+    INST_POP,
+    INST_MOVZBQ,
+    INST_MOVZWQ,
+    INST_MOVSLQ,
+    INST_CQO,
+    INST_SHL,
+    INST_SHR,
+    INST_OR,
+    INST_AND,
+    INST_NOT,
+    INST_TEST,
+    INST_CMP,
+    INST_SETE,
+    INST_SETNE,
+    INST_SETG,
+    INST_SETL,
+    INST_SETGE,
+    INST_SETLE,
+    INST_JZ,
+    INST_JNZ,
+    INST_JG,
+    INST_JL,
+    INST_JGE,
+    INST_JLE,
+    INST_NEG,
+    INST_INC,
+    INST_DEC,
+    INST_CALL,
+    INST_RET,
+    INST_LEAVE,
+    INST_JMP
+};
 
 static const char *regs8[]  = { "%r8b", "%r9b", "%r10b", "%r11b" };
 static const char *regs16[] = { "%r8w", "%r9w", "%r10w", "%r11w" };
@@ -123,16 +235,19 @@ static int regalloc()
         }
     }
 
-    int r = (spillreg % REGCNT);
-    spillreg++;
+    int r = (spillreg++ % REGCNT);
     fprintf(s_file, "\tpushq\t%s\n", regs64[r]);
     return r;
 }
 
 static void regfree(int r)
 {
-    assert(r >= 0 && r < (int)REGCNT);
-    reglist[r] = 0;
+    if (spillreg > 0)
+    {
+        r = (--spillreg & REGCNT);
+        fprintf(s_file, "\tpopq\t%s\n", regs64[r]);
+    }
+    else reglist[r] = 0;
 }
 
 static const char *setinsts[] =
@@ -153,6 +268,14 @@ static const char *jmpinsts[] =
     [OP_LT]     = "jg",
     [OP_GTE]    = "jle",
     [OP_LTE]    = "jge"
+};
+
+static char suffixes[] =
+{
+    [1] = 'b',
+    [2] = 'w',
+    [4] = 'l',
+    [8] = 'q'
 };
 
 static int add_string(const char *str)
@@ -258,7 +381,7 @@ static int gen_sub(int r1, int r2)
 
 static int gen_mul(int r1, int r2)
 {
-    fprintf(s_file, "\timulq\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(s_file, "\timulq\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
@@ -620,10 +743,22 @@ static int gen_call(struct ast *ast)
         fn = regs64[r];
         regfree(r); // A bit dodgy, makes for better looking code
     }
-    
+
+    for (int i = 0; i < REGCNT; i++)
+    {
+        if (reglist[i])
+            fprintf(s_file, "\tpushq\t%s\n", regs64[i]);
+    }
+
     if (ast->call.ast->vtype.func.variadic)
         fprintf(s_file, "\txorq\t%%rax, %%rax\n");
     fprintf(s_file, "\tcallq\t%s\n", fn);
+
+    for (int i = REGCNT - 1; i >= 0; i--)
+    {
+        if (reglist[i])
+            fprintf(s_file, "\tpopq\t%s\n", regs64[i]);
+    }
 
     if (ast->vtype.name == TYPE_VOID && !ast->vtype.ptr)
         return NOREG;
@@ -809,6 +944,7 @@ int gen_post(struct ast *ast)
         fprintf(s_file, "\t%s\t%s\n", inst, regs64[r3]);
 
         int r = gen_storederef(ast, r2, r3);
+        regfree(r1);
         regfree(r2);
         return r;
     }
@@ -820,7 +956,7 @@ int gen_post(struct ast *ast)
         fprintf(s_file, "\t%s\t%s\n", inst, regs64[r2]);
         
         struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
-        gen_store(sym, r2);
+        regfree(gen_store(sym, r2));
         return r1;
     }
 }
