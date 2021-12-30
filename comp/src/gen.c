@@ -8,6 +8,84 @@
 
 #define CMPEXPR(ast) (ast->type == A_BINOP && ((ast->binop.op > OP_LT && ast->binop.op < OP_NEQUAL) || ast->binop.op == OP_LAND || ast->binop.op == OP_LOR))
 
+/*#define CODE_INST 0
+#define CODE_REG  1
+#define CODE_LBL  2
+
+struct code
+{
+    int type;
+
+    union
+    {
+        int v;
+        char *str;
+    };
+};
+
+enum REGS
+{
+    REG_AL,
+    REG_BL,
+    REG_CL,
+    REG_DL,
+    REG_SIL,
+    REG_DIL,
+    REG_R8B,
+    REG_R9B,
+    REG_R10B,
+    REG_R11B,
+    REG_R12B,
+    REG_R13B,
+    REG_R14B,
+    REG_R15B,
+
+    REG_AX,
+    REG_BX,
+    REG_CX,
+    REG_DX,
+    REG_SI,
+    REG_DI,
+    REG_R8W,
+    REG_R9W,
+    REG_R10W,
+    REG_R11W,
+    REG_R12W,
+    REG_R13W,
+    REG_R14W,
+    REG_R15W,
+
+    REG_EAX,
+    REG_EBX,
+    REG_ECX,
+    REG_EDX,
+    REG_ESI,
+    REG_EDI,
+    REG_R8D,
+    REG_R9D,
+    REG_R10D,
+    REG_R11D,
+    REG_R12D,
+    REG_R13D,
+    REG_R14D,
+    REG_R15D,
+
+    REG_RAX,
+    REG_RBX,
+    REG_RCX,
+    REG_RDX,
+    REG_RSI,
+    REG_RDI,
+    REG_R8,
+    REG_R9,
+    REG_R10,
+    REG_R11,
+    REG_R12,
+    REG_R13,
+    REG_R14,
+    REG_R15,
+};*/
+
 static const char *regs8[]  = { "%r8b", "%r9b", "%r10b", "%r11b" };
 static const char *regs16[] = { "%r8w", "%r9w", "%r10w", "%r11w" };
 static const char *regs32[] = { "%r8d", "%r9d", "%r10d", "%r11d" };
@@ -15,6 +93,8 @@ static const char *regs64[] = { "%r8",  "%r9",  "%r10",  "%r11" };
 
 static struct symtable *s_currscope = NULL;
 static struct ast      *s_globlscope = NULL;
+
+static FILE *s_file = NULL;
 
 #define REGCNT (sizeof(regs64) / sizeof(regs64[0]))
 #define NOREG (-1)
@@ -29,6 +109,8 @@ static int label()
     return labels++;
 }
 
+static int spillreg = 0;
+
 // Allocate a register
 static int regalloc()
 {
@@ -41,9 +123,10 @@ static int regalloc()
         }
     }
 
-    printf("Out of registers\n");
-    abort();
-    return NOREG;
+    int r = (spillreg % REGCNT);
+    spillreg++;
+    fprintf(s_file, "\tpushq\t%s\n", regs64[r]);
+    return r;
 }
 
 static void regfree(int r)
@@ -72,23 +155,23 @@ static const char *jmpinsts[] =
     [OP_LTE]    = "jge"
 };
 
-static int add_string(const char *str, FILE *file)
+static int add_string(const char *str)
 {
     int l = label();
 
-    fprintf(file, "\t.section .rodata\n");
-    fprintf(file, "L%d:\n\t.string \"%s\"\n", l, str);
-    fprintf(file, "\t.section .text\n");
+    fprintf(s_file, "\t.section .rodata\n");
+    fprintf(s_file, "L%d:\n\t.string \"%s\"\n", l, str);
+    fprintf(s_file, "\t.section .text\n");
 
     return l;
 }
 
-static int asm_addrof(struct sym *sym, int r, FILE *file)
+static int asm_addrof(struct sym *sym, int r)
 {
     if (sym->attr & SYM_GLOBAL)
-        fprintf(file, "\tleaq\t%s(%%rip), %s\n", sym->name, regs64[r]);
+        fprintf(s_file, "\tleaq\t%s(%%rip), %s\n", sym->name, regs64[r]);
     else
-        fprintf(file, "\tleaq\t-%lu(%%rbp), %s\n", sym->stackoff, regs64[r]);
+        fprintf(s_file, "\tleaq\t-%lu(%%rbp), %s\n", sym->stackoff, regs64[r]);
     return r;
 }
 
@@ -116,133 +199,133 @@ static const char **regs[9] =
     [8] = regs64
 };
 
-static int gen_load(struct sym *sym, int r, FILE *file)
+static int gen_load(struct sym *sym, int r)
 {
     if (sym->type.arrlen)
-        return asm_addrof(sym, r, file);
+        return asm_addrof(sym, r);
     else
     {
         if (sym->attr & SYM_LOCAL)
-            fprintf(file, "\t%s\t-%lu(%%rbp), %s\n", movzs[asm_sizeof(sym->type)], sym->stackoff, regs64[r]);
+            fprintf(s_file, "\t%s\t-%lu(%%rbp), %s\n", movzs[asm_sizeof(sym->type)], sym->stackoff, regs64[r]);
         else
-            fprintf(file, "\t%s\t%s(%%rip), %s\n", movzs[asm_sizeof(sym->type)], sym->name, regs64[r]);
+            fprintf(s_file, "\t%s\t%s(%%rip), %s\n", movzs[asm_sizeof(sym->type)], sym->name, regs64[r]);
         return r;
     }
 }
 
-static int gen_store(struct sym *sym, int r, FILE* file)
+static int gen_store(struct sym *sym, int r)
 {
     if (sym->attr & SYM_LOCAL)
-        fprintf(file, "\t%s\t%s, -%lu(%%rbp)\n", movs[asm_sizeof(sym->type)], regs[asm_sizeof(sym->type)][r], sym->stackoff);
+        fprintf(s_file, "\t%s\t%s, -%lu(%%rbp)\n", movs[asm_sizeof(sym->type)], regs[asm_sizeof(sym->type)][r], sym->stackoff);
     else
-        fprintf(file, "\t%s\t%s, %s(%%rip)\n", movs[asm_sizeof(sym->type)], regs[asm_sizeof(sym->type)][r], sym->name);
+        fprintf(s_file, "\t%s\t%s, %s(%%rip)\n", movs[asm_sizeof(sym->type)], regs[asm_sizeof(sym->type)][r], sym->name);
     return r;
 }
 
-static int gen_storederef(struct ast *ast, int r1, int r2, FILE *file)
+static int gen_storederef(struct ast *ast, int r1, int r2)
 {
-    fprintf(file, "\t%s\t%s, (%s)\n", movs[asm_sizeof(ast->vtype)], regs[asm_sizeof(ast->vtype)][r2], regs64[r1]);
+    fprintf(s_file, "\t%s\t%s, (%s)\n", movs[asm_sizeof(ast->vtype)], regs[asm_sizeof(ast->vtype)][r2], regs64[r1]);
     regfree(r1);
     return r2;
 }
 
-static int gen_loadderef(struct ast *ast, int r, FILE *file)
+static int gen_loadderef(struct ast *ast, int r)
 {
     if (ast->lvalue)
         return r;
     else
     {
         int r2 = regalloc();
-        fprintf(file, "\t%s\t(%s), %s\n", movs[asm_sizeof(ast->vtype)], regs64[r], regs[asm_sizeof(ast->vtype)][r2]);
+        fprintf(s_file, "\t%s\t(%s), %s\n", movs[asm_sizeof(ast->vtype)], regs64[r], regs[asm_sizeof(ast->vtype)][r2]);
         regfree(r);
         return r2;
     }
 }
 
-static int gen_add(int r1, int r2, FILE *file)
+static int gen_add(int r1, int r2)
 {
-    fprintf(file, "\taddq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(s_file, "\taddq\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_sub(int r1, int r2, FILE *file)
+static int gen_sub(int r1, int r2)
 {
-    fprintf(file, "\tsubq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(s_file, "\tsubq\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_mul(int r1, int r2, FILE *file)
+static int gen_mul(int r1, int r2)
 {
-    fprintf(file, "\timulq\t%s, %s\n", regs64[r1], regs64[r2]);
+    fprintf(s_file, "\timulq\t%s, %s\n", regs64[r1], regs64[r2]);
     regfree(r2);
     return r1;
 }
 
-static int gen_div(int r1, int r2, FILE *file)
+static int gen_div(int r1, int r2)
 {
-    fprintf(file, "\tcqo\n");
-    fprintf(file, "\tmovq\t%s, %%rax\n", regs64[r1]);
-    fprintf(file, "\tidiv\t%s\n", regs64[r2]);
-    fprintf(file, "\tmovq\t%%rax, %s\n", regs64[r1]);
+    fprintf(s_file, "\tcqo\n");
+    fprintf(s_file, "\tmovq\t%s, %%rax\n", regs64[r1]);
+    fprintf(s_file, "\tidiv\t%s\n", regs64[r2]);
+    fprintf(s_file, "\tmovq\t%%rax, %s\n", regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_mod(int r1, int r2, FILE *file)
+static int gen_mod(int r1, int r2)
 {
-    fprintf(file, "\tcqo\n");
-    fprintf(file, "\tmovq\t%s, %%rax\n", regs64[r1]);
-    fprintf(file, "\tidiv\t%s\n", regs64[r2]);
-    fprintf(file, "\tmovq\t%%rdx, %s\n", regs64[r1]);
+    fprintf(s_file, "\tcqo\n");
+    fprintf(s_file, "\tmovq\t%s, %%rax\n", regs64[r1]);
+    fprintf(s_file, "\tidiv\t%s\n", regs64[r2]);
+    fprintf(s_file, "\tmovq\t%%rdx, %s\n", regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_shl(int r1, int r2, FILE *file)
+static int gen_shl(int r1, int r2)
 {
-    fprintf(file, "\tmovb\t%s, %%cl\n", regs8[r2]);
-    fprintf(file, "\tshlq\t%%cl, %s\n", regs64[r1]);
+    fprintf(s_file, "\tmovb\t%s, %%cl\n", regs8[r2]);
+    fprintf(s_file, "\tshlq\t%%cl, %s\n", regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_shr(int r1, int r2, FILE *file)
+static int gen_shr(int r1, int r2)
 {
-    fprintf(file, "\tmovb\t%s, %%cl\n", regs8[r2]);
-    fprintf(file, "\tshrq\t%%cl, %s\n", regs64[r1]);
+    fprintf(s_file, "\tmovb\t%s, %%cl\n", regs8[r2]);
+    fprintf(s_file, "\tshrq\t%%cl, %s\n", regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_bitand(int r1, int r2, FILE *file)
+static int gen_bitand(int r1, int r2)
 {
-    fprintf(file, "\tandq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(s_file, "\tandq\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_bitor(int r1, int r2, FILE *file)
+static int gen_bitor(int r1, int r2)
 {
-    fprintf(file, "\torq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(s_file, "\torq\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_bitxor(int r1, int r2, FILE *file)
+static int gen_bitxor(int r1, int r2)
 {
-    fprintf(file, "\txorq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(s_file, "\txorq\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_cmpandset(int r1, int r2, int op, FILE *file)
+static int gen_cmpandset(int r1, int r2, int op)
 {
     int r = regalloc();
-    fprintf(file, "\tcmpq\t%s, %s\n", regs64[r2], regs64[r1]);
-    fprintf(file, "\t%s\t%%al\n", setinsts[op]);
-    fprintf(file, "\tmovzx\t%%al, %s\n", regs64[r]);
+    fprintf(s_file, "\tcmpq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(s_file, "\t%s\t%%al\n", setinsts[op]);
+    fprintf(s_file, "\tmovzx\t%%al, %s\n", regs64[r]);
     
     regfree(r1);
     regfree(r2);
@@ -250,115 +333,115 @@ static int gen_cmpandset(int r1, int r2, int op, FILE *file)
 }
 
 // Compare two registers and jmp past code block
-static int gen_cmpandjmp(int r1, int r2, int op, int lbl, FILE *file)
+static int gen_cmpandjmp(int r1, int r2, int op, int lbl)
 {
-    fprintf(file, "\tcmpq\t%s, %s\n", regs64[r2], regs64[r1]);
-    fprintf(file, "\t%s\tL%d\n", jmpinsts[op], lbl);
+    fprintf(s_file, "\tcmpq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(s_file, "\t%s\tL%d\n", jmpinsts[op], lbl);
     regfree(r1);
     regfree(r2);
     return NOREG;
 }
 
 // Assignment binary expressions e.g. x = 10, x += 2, *x /= 2, etc
-static int gen_assign(int r1, int r2, struct ast *ast, FILE *file)
+static int gen_assign(int r1, int r2, struct ast *ast)
 {
     switch (ast->binop.op)
     {
-        case OP_PLUSEQ:   r2 = gen_add(r1, r2, file); break;
-        case OP_MULEQ:    r2 = gen_mul(r1, r2, file); break;
-        case OP_DIVEQ:    r2 = gen_div(r1, r2, file); break;
-        case OP_MINUSEQ:  r2 = gen_sub(r1, r2, file); break;
-        case OP_BITANDEQ: r2 = gen_bitand(r1, r2, file); break;
-        case OP_BITOREQ:  r2 = gen_bitor(r1, r2, file); break;
-        case OP_BITXOREQ: r2 = gen_bitxor(r1, r2, file); break;
-        case OP_SHLEQ:    r2 = gen_shl(r1, r2, file); break;
-        case OP_SHREQ:    r2 = gen_shr(r1, r2, file); break;
-        case OP_MODEQ:    r2 = gen_mod(r1, r2, file); break;
+        case OP_PLUSEQ:   r2 = gen_add(r1, r2); break;
+        case OP_MULEQ:    r2 = gen_mul(r1, r2); break;
+        case OP_DIVEQ:    r2 = gen_div(r1, r2); break;
+        case OP_MINUSEQ:  r2 = gen_sub(r1, r2); break;
+        case OP_BITANDEQ: r2 = gen_bitand(r1, r2); break;
+        case OP_BITOREQ:  r2 = gen_bitor(r1, r2); break;
+        case OP_BITXOREQ: r2 = gen_bitxor(r1, r2); break;
+        case OP_SHLEQ:    r2 = gen_shl(r1, r2); break;
+        case OP_SHREQ:    r2 = gen_shr(r1, r2); break;
+        case OP_MODEQ:    r2 = gen_mod(r1, r2); break;
     }
     
     if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
-        return gen_storederef(ast, r1, r2, file);
+        return gen_storederef(ast, r1, r2);
     else
     {
         struct sym *sym = sym_lookup(s_currscope, ast->binop.lhs->ident.name);
-        return gen_store(sym, r2, file);
+        return gen_store(sym, r2);
     }
 }
 
-static int gen_lazyeval(struct ast *ast, FILE *file)
+static int gen_lazyeval(struct ast *ast)
 {
     int end = label();
 
-    int r1 = gen_code(ast->binop.lhs, file);
+    int r1 = gen_code(ast->binop.lhs);
 
-    fprintf(file, "\ttest\t%s, %s\n", regs64[r1], regs64[r1]);
+    fprintf(s_file, "\ttest\t%s, %s\n", regs64[r1], regs64[r1]);
 
     if (ast->binop.op == OP_LAND)
-        fprintf(file, "\tjz\tL%d\n", end);
+        fprintf(s_file, "\tjz\tL%d\n", end);
     else if (ast->binop.op == OP_LOR)
-        fprintf(file, "\tjnz\tL%d\n", end);
+        fprintf(s_file, "\tjnz\tL%d\n", end);
 
     if (!CMPEXPR(ast->binop.lhs))
     {
-        fprintf(file, "\tsetne\t%s\n", regs8[r1]);
-        fprintf(file, "\tmovzbq\t%s, %s\n", regs8[r1], regs64[r1]);
+        fprintf(s_file, "\tsetne\t%s\n", regs8[r1]);
+        fprintf(s_file, "\tmovzbq\t%s, %s\n", regs8[r1], regs64[r1]);
     }
 
-    int r2 = gen_code(ast->binop.rhs, file);
+    int r2 = gen_code(ast->binop.rhs);
     if (!CMPEXPR(ast->binop.rhs))
     {
-        fprintf(file, "\ttest\t%s, %s\n", regs64[r2], regs64[r2]);
-        fprintf(file, "\tsetne\t%s\n", regs8[r2]);
-        fprintf(file, "\tmovzbq\t%s, %s\n", regs8[r2], regs64[r2]);
+        fprintf(s_file, "\ttest\t%s, %s\n", regs64[r2], regs64[r2]);
+        fprintf(s_file, "\tsetne\t%s\n", regs8[r2]);
+        fprintf(s_file, "\tmovzbq\t%s, %s\n", regs8[r2], regs64[r2]);
     }
 
     regfree(r1);
-    fprintf(file, "L%d:\n", end);
+    fprintf(s_file, "L%d:\n", end);
     return r2;
 }
 
-static int gen_lazyevaljmp(int lbl, struct ast *ast, FILE *file)
+static int gen_lazyevaljmp(int lbl, struct ast *ast)
 {
-    int r1 = gen_code(ast->binop.lhs, file);
+    int r1 = gen_code(ast->binop.lhs);
 
-    fprintf(file, "\ttest\t%s, %s\n", regs64[r1], regs64[r1]);
+    fprintf(s_file, "\ttest\t%s, %s\n", regs64[r1], regs64[r1]);
     regfree(r1);
     
     if (ast->binop.op == OP_LAND)
-        fprintf(file, "\tjz\tL%d\n", lbl);
+        fprintf(s_file, "\tjz\tL%d\n", lbl);
     else if (ast->binop.op == OP_LOR)
-        fprintf(file, "\tjnz\tL%d\n", lbl);
+        fprintf(s_file, "\tjnz\tL%d\n", lbl);
 
-    int r2 = gen_code(ast->binop.rhs, file);
-    fprintf(file, "\ttest\t%s, %s\n", regs64[r2], regs64[r2]);
-    fprintf(file, "\tjnz\tL%d\n", lbl);
+    int r2 = gen_code(ast->binop.rhs);
+    fprintf(s_file, "\ttest\t%s, %s\n", regs64[r2], regs64[r2]);
+    fprintf(s_file, "\tjnz\tL%d\n", lbl);
     regfree(r2);
     return NOREG;
 }
 
-static int gen_binop(struct ast *ast, FILE *file)
+static int gen_binop(struct ast *ast)
 {
     if (ast->binop.op == OP_LAND || ast->binop.op == OP_LOR)
-        return gen_lazyeval(ast, file);
+        return gen_lazyeval(ast);
 
-    int r1 = gen_code(ast->binop.lhs, file);
-    int r2 = gen_code(ast->binop.rhs, file);
+    int r1 = gen_code(ast->binop.lhs);
+    int r2 = gen_code(ast->binop.rhs);
 
     switch (ast->binop.op)
     {
-        case OP_PLUS:   return gen_add(r1, r2, file); 
-        case OP_MUL:    return gen_mul(r1, r2, file);
-        case OP_DIV:    return gen_div(r1, r2, file);      
-        case OP_MINUS:  return gen_sub(r1, r2, file);
-        case OP_SHL:    return gen_shl(r1, r2, file);
-        case OP_SHR:    return gen_shr(r1, r2, file);
-        case OP_MOD:    return gen_mod(r1, r2, file);
+        case OP_PLUS:   return gen_add(r1, r2); 
+        case OP_MUL:    return gen_mul(r1, r2);
+        case OP_DIV:    return gen_div(r1, r2);      
+        case OP_MINUS:  return gen_sub(r1, r2);
+        case OP_SHL:    return gen_shl(r1, r2);
+        case OP_SHR:    return gen_shr(r1, r2);
+        case OP_MOD:    return gen_mod(r1, r2);
         case OP_EQUAL:
         case OP_NEQUAL:
         case OP_GT:
         case OP_LT:
         case OP_GTE:
-        case OP_LTE:    return gen_cmpandset(r1, r2, ast->binop.op, file);
+        case OP_LTE:    return gen_cmpandset(r1, r2, ast->binop.op);
         case OP_ASSIGN:
         case OP_PLUSEQ:
         case OP_MINUSEQ:
@@ -369,81 +452,81 @@ static int gen_binop(struct ast *ast, FILE *file)
         case OP_BITXOREQ:
         case OP_SHLEQ:
         case OP_SHREQ:
-        case OP_MODEQ:  return gen_assign(r1, r2, ast, file);
-        case OP_BITAND: return gen_bitand(r1, r2, file);
-        case OP_BITOR:  return gen_bitor(r1, r2, file);
-        case OP_BITXOR: return gen_bitxor(r1, r2, file);
+        case OP_MODEQ:  return gen_assign(r1, r2, ast);
+        case OP_BITAND: return gen_bitand(r1, r2);
+        case OP_BITOR:  return gen_bitor(r1, r2);
+        case OP_BITXOR: return gen_bitxor(r1, r2);
     }
 
     return NOREG;
 }
 
-static int gen_lognot(int r, FILE *file)
+static int gen_lognot(int r)
 {
-    fprintf(file, "\ttest\t%s, %s\n", regs64[r], regs64[r]);
-    fprintf(file, "\tsete\t%s\n", regs8[r]);
-    fprintf(file, "\tmovzbq\t%s, %s\n", regs8[r], regs64[r]);
+    fprintf(s_file, "\ttest\t%s, %s\n", regs64[r], regs64[r]);
+    fprintf(s_file, "\tsete\t%s\n", regs8[r]);
+    fprintf(s_file, "\tmovzbq\t%s, %s\n", regs8[r], regs64[r]);
     return r;
 }
 
-static int gen_bitnot(int r, FILE *file)
+static int gen_bitnot(int r)
 {
-    fprintf(file, "\tnotq\t%s\n", regs64[r]);
+    fprintf(s_file, "\tnotq\t%s\n", regs64[r]);
     return r;
 }
 
-static int gen_unaryminus(int r, FILE *file)
+static int gen_unaryminus(int r)
 {
-    fprintf(file, "\tnegq\t%s\n", regs64[r]);
+    fprintf(s_file, "\tnegq\t%s\n", regs64[r]);
     return r;
 }
 
-static int gen_addrof(struct ast *ast, FILE *file)
+static int gen_addrof(struct ast *ast)
 {
     int r = regalloc();
-    return asm_addrof(sym_lookup(s_currscope, ast->unary.val->ident.name), r, file);
+    return asm_addrof(sym_lookup(s_currscope, ast->unary.val->ident.name), r);
 }
 
-static int gen_unary(struct ast *ast, FILE *file)
+static int gen_unary(struct ast *ast)
 {
     if (ast->unary.op == OP_ADDROF)
-        return gen_addrof(ast, file);
+        return gen_addrof(ast);
 
-    int r = gen_code(ast->unary.val, file);
+    int r = gen_code(ast->unary.val);
 
     switch (ast->unary.op)
     {
-        case OP_DEREF:  return gen_loadderef(ast, r, file); break;
-        case OP_LOGNOT: return gen_lognot(r, file); break;
-        case OP_BITNOT: return gen_bitnot(r, file); break;
-        case OP_MINUS:  return gen_unaryminus(r, file); break;
+        case OP_DEREF:  return gen_loadderef(ast, r); break;
+        case OP_LOGNOT: return gen_lognot(r); break;
+        case OP_BITNOT: return gen_bitnot(r); break;
+        case OP_MINUS:  return gen_unaryminus(r); break;
     }
 
     return NOREG;
 }
 
-static int gen_intlit(struct ast *ast, FILE *file)
+static int gen_intlit(struct ast *ast)
 {
     int r = regalloc();
-    fprintf(file, "\tmovq\t$%ld, %s\n", ast->intlit.ival, regs64[r]);
+    fprintf(s_file, "\tmovq\t$%ld, %s\n", ast->intlit.ival, regs64[r]);
     return r;
 }
 
-static int gen_ident(struct ast *ast, FILE *file)
+static int gen_ident(struct ast *ast)
 {
     if (ast->lvalue) return NOREG;
 
     int r = regalloc();
     struct sym *sym = sym_lookup(s_currscope, ast->ident.name);
-    return gen_load(sym, r, file);
+    return gen_load(sym, r);
 }
 
-static int gen_block(struct ast *ast, FILE *file)
+static int gen_block(struct ast *ast)
 {
     s_currscope = &ast->block.symtab;
 
     for (unsigned int i = 0; i < ast->block.cnt; i++)
-        DISCARD(gen_code(ast->block.statements[i], file));
+        DISCARD(gen_code(ast->block.statements[i]));
 
     s_currscope = s_currscope->parent;
     return NOREG;
@@ -477,53 +560,53 @@ static const char **paramregs[] =
     [8] = paramregs64
 };
 
-static int gen_funcdef(struct ast *ast, FILE *file)
+static int gen_funcdef(struct ast *ast)
 {
     ast->funcdef.endlbl = label();
 
     struct sym *sym = sym_lookup(s_currscope, ast->funcdef.name);
     if (sym->attr & SYM_PUBLIC)
-        fprintf(file, "\t.global %s\n", ast->funcdef.name);
+        fprintf(s_file, "\t.global %s\n", ast->funcdef.name);
     
-    fprintf(file, "%s:\n", ast->funcdef.name);
+    fprintf(s_file, "%s:\n", ast->funcdef.name);
 
     if (ast->funcdef.block->block.symtab.curr_stackoff)
     {
-        fprintf(file, "\tpushq\t%%rbp\n");
-        fprintf(file, "\tmovq\t%%rsp, %%rbp\n");
-        fprintf(file, "\tsubq\t$%lu, %%rsp\n", ast->funcdef.block->block.symtab.curr_stackoff);
+        fprintf(s_file, "\tpushq\t%%rbp\n");
+        fprintf(s_file, "\tmovq\t%%rsp, %%rbp\n");
+        fprintf(s_file, "\tsubq\t$%lu, %%rsp\n", ast->funcdef.block->block.symtab.curr_stackoff);
     }
 
     for (unsigned int i = 0; i < sym->type.func.paramcnt; i++)
     {
         struct sym *sym = sym_lookup(&ast->funcdef.block->block.symtab, ast->funcdef.params[i]);
         size_t size = asm_sizeof(sym->type);
-        fprintf(file, "\t%s\t%s, -%lu(%%rbp)\n", movs[size], paramregs[size][i], sym->stackoff);
+        fprintf(s_file, "\t%s\t%s, -%lu(%%rbp)\n", movs[size], paramregs[size][i], sym->stackoff);
     }
 
-    gen_block(ast->funcdef.block, file);
-    fprintf(file, "L%d:\n", ast->funcdef.endlbl);
+    gen_block(ast->funcdef.block);
+    fprintf(s_file, "L%d:\n", ast->funcdef.endlbl);
 
     if (ast->funcdef.block->block.symtab.curr_stackoff)
-        fprintf(file, "\tleaveq\n");
+        fprintf(s_file, "\tleaveq\n");
     
-    fprintf(file, "\tretq\n\n");
+    fprintf(s_file, "\tretq\n\n");
     return NOREG;
 }
 
-static int gen_inlineasm(struct ast *ast, FILE *file)
+static int gen_inlineasm(struct ast *ast)
 {
-    fprintf(file, "%s", ast->inasm.code);
+    fprintf(s_file, "%s", ast->inasm.code);
     return NOREG;
 }
 
-static int gen_call(struct ast *ast, FILE *file)
+static int gen_call(struct ast *ast)
 {
     for (unsigned int i = 0; i < ast->call.paramcnt; i++)
     {
-        int par = gen_code(ast->call.params[i], file);
+        int par = gen_code(ast->call.params[i]);
         size_t s = asm_sizeof(ast->call.params[i]->vtype);
-        fprintf(file, "\t%s\t%s, %s\n", movs[s], regs[s][par], paramregs[s][i]);
+        fprintf(s_file, "\t%s\t%s, %s\n", movs[s], regs[s][par], paramregs[s][i]);
         regfree(par);
     }
 
@@ -533,20 +616,20 @@ static int gen_call(struct ast *ast, FILE *file)
         fn = ast->call.ast->unary.val->ident.name;
     else
     {
-        int r = gen_code(ast->call.ast, file);
+        int r = gen_code(ast->call.ast);
         fn = regs64[r];
         regfree(r); // A bit dodgy, makes for better looking code
     }
     
     if (ast->call.ast->vtype.func.variadic)
-        fprintf(file, "\txorq\t%%rax, %%rax\n");
-    fprintf(file, "\tcallq\t%s\n", fn);
+        fprintf(s_file, "\txorq\t%%rax, %%rax\n");
+    fprintf(s_file, "\tcallq\t%s\n", fn);
 
     if (ast->vtype.name == TYPE_VOID && !ast->vtype.ptr)
         return NOREG;
 
     int r = regalloc();
-    fprintf(file, "\tmovq\t%%rax, %s\n", regs64[r]);
+    fprintf(s_file, "\tmovq\t%%rax, %s\n", regs64[r]);
     return r;
 }
 
@@ -558,21 +641,21 @@ static const char *retrs[] =
     [8] = "%rax"
 };
 
-static int gen_return(struct ast *ast, FILE *file)
+static int gen_return(struct ast *ast)
 {
     if (ast->ret.val)
     {
-        int r = gen_code(ast->ret.val, file);
+        int r = gen_code(ast->ret.val);
         size_t s = asm_sizeof(ast->ret.val->vtype);
-        fprintf(file, "\t%s\t%s, %s\n", movs[s], regs[s][r], retrs[s]);
+        fprintf(s_file, "\t%s\t%s, %s\n", movs[s], regs[s][r], retrs[s]);
         regfree(r);
     }
 
-    fprintf(file, "\tjmp\tL%d\n", ast->ret.func->funcdef.endlbl);
+    fprintf(s_file, "\tjmp\tL%d\n", ast->ret.func->funcdef.endlbl);
     return NOREG;
 }
 
-static int gen_ifelse(struct ast *ast, FILE *file)
+static int gen_ifelse(struct ast *ast)
 {
     int elselbl = -1;
     if (ast->ifelse.elseblock) elselbl = label();
@@ -583,149 +666,149 @@ static int gen_ifelse(struct ast *ast, FILE *file)
     if (CMPEXPR(cond))
     {
         if (cond->binop.op == OP_LAND || cond->binop.op == OP_LOR)
-            gen_lazyevaljmp(elselbl != -1 ? elselbl : endlbl, cond, file);
+            gen_lazyevaljmp(elselbl != -1 ? elselbl : endlbl, cond);
         else
         {
-            int r1 = gen_code(cond->binop.lhs, file);
-            int r2 = gen_code(cond->binop.rhs, file);
-            gen_cmpandjmp(r1, r2, cond->binop.op, elselbl != -1 ? elselbl : endlbl, file);
+            int r1 = gen_code(cond->binop.lhs);
+            int r2 = gen_code(cond->binop.rhs);
+            gen_cmpandjmp(r1, r2, cond->binop.op, elselbl != -1 ? elselbl : endlbl);
         }
     }
     else
     {
-        int r = gen_code(cond, file);
-        fprintf(file, "\tcmpq\t$0, %s\n", regs64[r]);
-        fprintf(file, "\tjz\tL%d\n", elselbl != -1 ? elselbl : endlbl);
+        int r = gen_code(cond);
+        fprintf(s_file, "\tcmpq\t$0, %s\n", regs64[r]);
+        fprintf(s_file, "\tjz\tL%d\n", elselbl != -1 ? elselbl : endlbl);
         regfree(r);
     }
 
-    DISCARD(gen_code(ast->ifelse.ifblock, file));
+    DISCARD(gen_code(ast->ifelse.ifblock));
     
     if (elselbl != -1)
     {
-        fprintf(file, "\tjmp\tL%d\n", endlbl);
-        fprintf(file, "L%d:\n", elselbl);
-        DISCARD(gen_code(ast->ifelse.elseblock, file));
+        fprintf(s_file, "\tjmp\tL%d\n", endlbl);
+        fprintf(s_file, "L%d:\n", elselbl);
+        DISCARD(gen_code(ast->ifelse.elseblock));
     }
 
-    fprintf(file, "L%d:\n", endlbl);
+    fprintf(s_file, "L%d:\n", endlbl);
     return NOREG;
 }
 
-static int gen_while(struct ast *ast, FILE *file)
+static int gen_while(struct ast *ast)
 {
     int looplbl = label(), endlbl = label();
 
-    fprintf(file, "L%d:\n", looplbl);
-    int r = gen_code(ast->ifelse.cond, file);
+    fprintf(s_file, "L%d:\n", looplbl);
+    int r = gen_code(ast->ifelse.cond);
     
-    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r]);
-    fprintf(file, "\tjz\tL%d\n", endlbl);
+    fprintf(s_file, "\tcmpq\t$0, %s\n", regs64[r]);
+    fprintf(s_file, "\tjz\tL%d\n", endlbl);
 
     regfree(r);
 
-    DISCARD(gen_code(ast->whileloop.body, file));
+    DISCARD(gen_code(ast->whileloop.body));
 
-    fprintf(file, "\tjmp\tL%d\n", looplbl);
+    fprintf(s_file, "\tjmp\tL%d\n", looplbl);
 
-    fprintf(file, "L%d:\n", endlbl);
+    fprintf(s_file, "L%d:\n", endlbl);
     return NOREG;
 }
 
 // TODO: refactor block/symtab stuff, because the code that follows is very ugly and hacky
 
-static int gen_for(struct ast *ast, FILE *file)
+static int gen_for(struct ast *ast)
 {
     int looplbl = label(), endlbl = label();
 
     s_currscope = &ast->forloop.body->block.symtab;
-    DISCARD(gen_code(ast->forloop.init, file));
+    DISCARD(gen_code(ast->forloop.init));
 
-    fprintf(file, "L%d:\n", looplbl);
-    int r = gen_code(ast->forloop.cond, file);
+    fprintf(s_file, "L%d:\n", looplbl);
+    int r = gen_code(ast->forloop.cond);
     
-    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r]);
-    fprintf(file, "\tjz\tL%d\n", endlbl);
+    fprintf(s_file, "\tcmpq\t$0, %s\n", regs64[r]);
+    fprintf(s_file, "\tjz\tL%d\n", endlbl);
 
     regfree(r);
 
-    DISCARD(gen_code(ast->forloop.body, file));
+    DISCARD(gen_code(ast->forloop.body));
     // TODO: this is hacky
     s_currscope = &ast->forloop.body->block.symtab;
-    DISCARD(gen_code(ast->forloop.update, file));
+    DISCARD(gen_code(ast->forloop.update));
 
     s_currscope = ast->forloop.body->block.symtab.parent;
-    fprintf(file, "\tjmp\tL%d\n", looplbl);
-    fprintf(file, "L%d:\n", endlbl);
+    fprintf(s_file, "\tjmp\tL%d\n", looplbl);
+    fprintf(s_file, "L%d:\n", endlbl);
     return NOREG;
 }
 
-static int gen_strlit(struct ast *ast, FILE *file)
+static int gen_strlit(struct ast *ast)
 {
     int r = regalloc();
-    fprintf(file, "\tleaq\tL%d(%%rip), %s\n", s_globlscope->block.strs[ast->strlit.idx].lbl, regs64[r]);
+    fprintf(s_file, "\tleaq\tL%d(%%rip), %s\n", s_globlscope->block.strs[ast->strlit.idx].lbl, regs64[r]);
     return r;
 }
 
-static int gen_sizeof(struct ast *ast, FILE *file)
+static int gen_sizeof(struct ast *ast)
 {
     int r = regalloc();
-    fprintf(file, "\tmovq\t$%lu, %s\n", asm_sizeof(ast->sizeofop.t), regs64[r]);
+    fprintf(s_file, "\tmovq\t$%lu, %s\n", asm_sizeof(ast->sizeofop.t), regs64[r]);
     return r;
 }
 
-int gen_label(struct ast *ast, FILE *file)
+int gen_label(struct ast *ast)
 {
-    fprintf(file, "%s:\n", ast->label.name);
+    fprintf(s_file, "%s:\n", ast->label.name);
     return NOREG;
 }
 
-int gen_goto(struct ast *ast, FILE *file)
+int gen_goto(struct ast *ast)
 {
-    fprintf(file, "\tjmp\t%s\n", ast->gotolbl.label);
+    fprintf(s_file, "\tjmp\t%s\n", ast->gotolbl.label);
     return NOREG;
 }
 
-int gen_cast(struct ast *ast, FILE *file)
+int gen_cast(struct ast *ast)
 {
-    return gen_code(ast->cast.val, file);
+    return gen_code(ast->cast.val);
 }
 
 // Pre-increment or decrement
-int gen_pre(struct ast *ast, FILE *file)
+int gen_pre(struct ast *ast)
 {
     const char *inst = ast->type == A_PREINC ? "incq" : "decq";
 
-    int r1 = gen_code(ast->incdec.val, file);
+    int r1 = gen_code(ast->incdec.val);
     if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
     {
-        int r2 = gen_code(ast->incdec.val->unary.val, file);
+        int r2 = gen_code(ast->incdec.val->unary.val);
         
-        fprintf(file, "\t%s\t%s\n", inst, regs64[r1]);
-        return gen_storederef(ast, r2, r1, file);
+        fprintf(s_file, "\t%s\t%s\n", inst, regs64[r1]);
+        return gen_storederef(ast, r2, r1);
     }
     else
     {
-        fprintf(file, "\t%s\t%s\n", inst, regs64[r1]);
+        fprintf(s_file, "\t%s\t%s\n", inst, regs64[r1]);
         struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
-        return gen_store(sym, r1, file);
+        return gen_store(sym, r1);
     }
 }
 
-int gen_post(struct ast *ast, FILE *file)
+int gen_post(struct ast *ast)
 {
     const char *inst = ast->type == A_POSTINC ? "incq" : "decq";
 
-    int r1 = gen_code(ast->incdec.val, file);
+    int r1 = gen_code(ast->incdec.val);
     if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
     {
-        int r2 = gen_code(ast->incdec.val->unary.val, file);
+        int r2 = gen_code(ast->incdec.val->unary.val);
         int r3 = regalloc();
 
-        fprintf(file, "\tmovq\t%s, %s\n", regs64[r1], regs64[r3]);
-        fprintf(file, "\t%s\t%s\n", inst, regs64[r3]);
+        fprintf(s_file, "\tmovq\t%s, %s\n", regs64[r1], regs64[r3]);
+        fprintf(s_file, "\t%s\t%s\n", inst, regs64[r3]);
 
-        int r = gen_storederef(ast, r2, r3, file);
+        int r = gen_storederef(ast, r2, r3);
         regfree(r2);
         return r;
     }
@@ -733,81 +816,81 @@ int gen_post(struct ast *ast, FILE *file)
     {
         int r2 = regalloc();
 
-        fprintf(file, "\tmovq\t%s, %s\n", regs64[r1], regs64[r2]);
-        fprintf(file, "\t%s\t%s\n", inst, regs64[r2]);
+        fprintf(s_file, "\tmovq\t%s, %s\n", regs64[r1], regs64[r2]);
+        fprintf(s_file, "\t%s\t%s\n", inst, regs64[r2]);
         
         struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
-        gen_store(sym, r2, file);
+        gen_store(sym, r2);
         return r1;
     }
 }
 
-int gen_scale(struct ast *ast, FILE *file)
+int gen_scale(struct ast *ast)
 {
-    int r = gen_code(ast->scale.val, file);
-    fprintf(file, "\timulq\t$%u, %s\n", ast->scale.num, regs64[r]);
+    int r = gen_code(ast->scale.val);
+    fprintf(s_file, "\timulq\t$%u, %s\n", ast->scale.num, regs64[r]);
     return r;
 }
 
-int gen_ternary(struct ast *ast, FILE *file)
+int gen_ternary(struct ast *ast)
 {
     int l1 = label(), l2 = label();
-    int r1 = gen_code(ast->ternary.cond, file);
+    int r1 = gen_code(ast->ternary.cond);
     int r2 = regalloc();
 
-    fprintf(file, "\tcmpq\t$0, %s\n", regs64[r1]);
-    fprintf(file, "\tjz\tL%d\n", l1);
+    fprintf(s_file, "\tcmpq\t$0, %s\n", regs64[r1]);
+    fprintf(s_file, "\tjz\tL%d\n", l1);
     regfree(r1);
 
-    int r3 = gen_code(ast->ternary.lhs, file);
-    fprintf(file, "\tmovq\t%s, %s\n", regs64[r3], regs64[r2]);
+    int r3 = gen_code(ast->ternary.lhs);
+    fprintf(s_file, "\tmovq\t%s, %s\n", regs64[r3], regs64[r2]);
     regfree(r3);
 
-    fprintf(file, "\tjmp\tL%d\n", l2);
-    fprintf(file, "L%d:\n", l1);
+    fprintf(s_file, "\tjmp\tL%d\n", l2);
+    fprintf(s_file, "L%d:\n", l1);
     
-    r3 = gen_code(ast->ternary.rhs, file);
-    fprintf(file, "\tmovq\t%s, %s\n", regs64[r3], regs64[r2]);
+    r3 = gen_code(ast->ternary.rhs);
+    fprintf(s_file, "\tmovq\t%s, %s\n", regs64[r3], regs64[r2]);
     regfree(r3);
 
-    fprintf(file, "L%d:\n", l2);
+    fprintf(s_file, "L%d:\n", l2);
     return r2;
 }
 
 // Generate code for an AST node
-int gen_code(struct ast *ast, FILE *file)
+int gen_code(struct ast *ast)
 {
     switch (ast->type)
     {
-        case A_BINOP:   return gen_binop(ast, file);
-        case A_UNARY:   return gen_unary(ast, file);
-        case A_INTLIT:  return gen_intlit(ast, file);
-        case A_CALL:    return gen_call(ast, file);
-        case A_IDENT:   return gen_ident(ast, file);
-        case A_STRLIT:  return gen_strlit(ast, file);
-        case A_SIZEOF:  return gen_sizeof(ast, file);
-        case A_CAST:    return gen_cast(ast, file);
+        case A_BINOP:   return gen_binop(ast);
+        case A_UNARY:   return gen_unary(ast);
+        case A_INTLIT:  return gen_intlit(ast);
+        case A_CALL:    return gen_call(ast);
+        case A_IDENT:   return gen_ident(ast);
+        case A_STRLIT:  return gen_strlit(ast);
+        case A_SIZEOF:  return gen_sizeof(ast);
+        case A_CAST:    return gen_cast(ast);
         case A_PREINC:
-        case A_PREDEC:  return gen_pre(ast, file);
+        case A_PREDEC:  return gen_pre(ast);
         case A_POSTINC:
-        case A_POSTDEC: return gen_post(ast, file);
-        case A_SCALE:   return gen_scale(ast, file);
-        case A_FUNCDEF: return gen_funcdef(ast, file);
-        case A_ASM:     return gen_inlineasm(ast, file);
-        case A_BLOCK:   return gen_block(ast, file);
-        case A_RETURN:  return gen_return(ast, file);
-        case A_IFELSE:  return gen_ifelse(ast, file);
-        case A_WHILE:   return gen_while(ast, file);
-        case A_FOR:     return gen_for(ast, file);
-        case A_LABEL:   return gen_label(ast, file);
-        case A_GOTO:    return gen_goto(ast, file);
-        case A_TERNARY: return gen_ternary(ast, file);
+        case A_POSTDEC: return gen_post(ast);
+        case A_SCALE:   return gen_scale(ast);
+        case A_FUNCDEF: return gen_funcdef(ast);
+        case A_ASM:     return gen_inlineasm(ast);
+        case A_BLOCK:   return gen_block(ast);
+        case A_RETURN:  return gen_return(ast);
+        case A_IFELSE:  return gen_ifelse(ast);
+        case A_WHILE:   return gen_while(ast);
+        case A_FOR:     return gen_for(ast);
+        case A_LABEL:   return gen_label(ast);
+        case A_GOTO:    return gen_goto(ast);
+        case A_TERNARY: return gen_ternary(ast);
     }
 
     return NOREG;
 }
 
-void gen_datavar(struct type t, FILE *file)
+void gen_datavar(struct type t)
 {
     if (t.arrlen)
     {
@@ -815,23 +898,23 @@ void gen_datavar(struct type t, FILE *file)
         base.arrlen = 0;
 
         for (int i = 0; i < t.arrlen; i++)
-            gen_datavar(base, file);
+            gen_datavar(base);
     }
     else if (t.name == TYPE_STRUCT)
     {
         for (unsigned int i = 0; i < t.struc.memcnt; i++)
-            gen_datavar(t.struc.members[i].type, file);
+            gen_datavar(t.struc.members[i].type);
     }
     else if (t.ptr)
-        fprintf(file, "\t.long 0\n");
+        fprintf(s_file, "\t.long 0\n");
     else
     {
         switch (asm_sizeof(t))
         {
-            case 1: fprintf(file, "\t.byte  0\n"); break;
-            case 2: fprintf(file, "\t.short 0\n"); break;
-            case 4: fprintf(file, "\t.int   0\n"); break;
-            case 8: fprintf(file, "\t.long  0\n"); break;
+            case 1: fprintf(s_file, "\t.byte  0\n"); break;
+            case 2: fprintf(s_file, "\t.short 0\n"); break;
+            case 4: fprintf(s_file, "\t.int   0\n"); break;
+            case 8: fprintf(s_file, "\t.long  0\n"); break;
         }
     }
 }
@@ -839,13 +922,14 @@ void gen_datavar(struct type t, FILE *file)
 void gen_ast(struct ast *ast, FILE *file)
 {
     s_globlscope = ast;
+    s_file       = file;
 
-    fprintf(file, "\t.section .rodata\n");
+    fprintf(s_file, "\t.section .rodata\n");
 
     for (unsigned int i = 0; i < ast->block.strcnt; i++)
-        fprintf(file, "L%d: .string \"%s\"\n", ast->block.strs[i].lbl = label(), ast->block.strs[i].val);
+        fprintf(s_file, "L%d: .string \"%s\"\n", ast->block.strs[i].lbl = label(), ast->block.strs[i].val);
 
-    fprintf(file, "\t.section .data\n");
+    fprintf(s_file, "\t.section .data\n");
 
     for (unsigned int i = 0; i < ast->block.symtab.cnt; i++)
     {
@@ -853,13 +937,13 @@ void gen_ast(struct ast *ast, FILE *file)
         if (sym->attr & SYM_GLOBAL && !(sym->type.name == TYPE_FUNC && !sym->type.ptr))
         {
             if (sym->attr & SYM_PUBLIC)
-                fprintf(file, "\t.global %s\n", sym->name);
-            fprintf(file, "%s:\n", sym->name);
+                fprintf(s_file, "\t.global %s\n", sym->name);
+            fprintf(s_file, "%s:\n", sym->name);
             
-            gen_datavar(sym->type, file); 
+            gen_datavar(sym->type); 
         }
     }
 
-    fprintf(file, "\t.section .text\n");
-    gen_code(ast, file);
+    fprintf(s_file, "\t.section .text\n");
+    gen_code(ast);
 }
