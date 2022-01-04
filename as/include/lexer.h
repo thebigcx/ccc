@@ -8,6 +8,7 @@ enum TOKEN
     T_LBL,
     T_REG,
     T_IMM,
+    T_COLON,
     T_EOF
 };
 
