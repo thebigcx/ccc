@@ -1,12 +1,40 @@
 #include <lexer.h>
+#include <defs.h>
 
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 
+#define ARRLEN(arr) (sizeof(arr) / sizeof(arr[0]))
+
 static FILE *s_file = NULL;
 static struct token **s_toks = NULL;
 static size_t s_tokcnt = 0;
+
+const char *insts[] =
+{
+    [INST_ADD] = "add"
+};
+
+const char *regstrs[] =
+{
+    [REG_RAX] = "rax",
+    [REG_RBX] = "rbx"
+};
+
+int insttype(const char *sval)
+{
+    for (unsigned int i = 0; i < ARRLEN(insts); i++)
+        if (!strcmp(insts[i], sval)) return i;
+    return -1;
+}
+
+int regtype(const char *sval)
+{
+    for (unsigned int i = 0; i < ARRLEN(regstrs); i++)
+        if (!strcmp(regstrs[i], sval)) return i;
+    return -1;
+}
 
 void pushtok(int type, char *sval, unsigned long ival)
 {
@@ -22,9 +50,11 @@ int lexfile(FILE *file, struct token **toks)
     char c;
     while ((c = fgetc(file)) != EOF)
     {
+        if (isspace(c)) continue;
         switch (c)
         {
             case ':': pushtok(T_COLON, NULL, 0); continue;
+            case ',': pushtok(T_COMMA, NULL, 0); continue;
         }
 
         char str[32];
@@ -46,7 +76,10 @@ int lexfile(FILE *file, struct token **toks)
             }
             else
             {
-                pushtok(T_LBL, strdup(str), 0);
+                int t;
+                if ((t = insttype(str)) != -1) pushtok(T_INST, NULL, t);
+                else if ((t = regtype(str)) != -1) pushtok(T_REG, NULL, t);
+                else pushtok(T_LBL, strdup(str), 0);
             }
         }
     }

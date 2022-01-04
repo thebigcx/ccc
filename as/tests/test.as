@@ -1,2 +1,1 @@
-main:
-    ret
+    add rax, rbx

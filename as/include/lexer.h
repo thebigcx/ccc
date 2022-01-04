@@ -9,6 +9,8 @@ enum TOKEN
     T_REG,
     T_IMM,
     T_COLON,
+    T_COMMA,
+    T_INST,
     T_EOF
 };
 
