@@ -18,8 +18,46 @@ const char *insts[] =
 
 const char *regstrs[] =
 {
+    [REG_AH] = "ah",
+    [REG_BH] = "bh",
+    [REG_CH] = "ch",
+    [REG_DH] = "dh",
+
+    [REG_AL] = "al",
+    [REG_BL] = "bl",
+    [REG_CL] = "cl",
+    [REG_DL] = "dl",
+    [REG_SPL] = "spl",
+    [REG_BPL] = "bpl",
+    [REG_SIL] = "sil",
+    [REG_DIL] = "dil",
+
+    [REG_AX] = "ax",
+    [REG_BX] = "bx",
+    [REG_CX] = "cx",
+    [REG_DX] = "dx",
+    [REG_SP] = "sp",
+    [REG_BP] = "bp",
+    [REG_SI] = "si",
+    [REG_DI] = "di",
+
+    [REG_EAX] = "eax",
+    [REG_EBX] = "ebx",
+    [REG_ECX] = "ecx",
+    [REG_EDX] = "edx",
+    [REG_ESP] = "esp",
+    [REG_EBP] = "ebp",
+    [REG_ESI] = "esi",
+    [REG_EDI] = "edi",
+
     [REG_RAX] = "rax",
-    [REG_RBX] = "rbx"
+    [REG_RBX] = "rbx",
+    [REG_RCX] = "rcx",
+    [REG_RDX] = "rdx",
+    [REG_RSP] = "rsp",
+    [REG_RBP] = "rbp",
+    [REG_RSI] = "rsi",
+    [REG_RDI] = "rdi"
 };
 
 int insttype(const char *sval)
@@ -64,7 +102,7 @@ int lexfile(FILE *file, struct token **toks)
             int dig = isdigit(c);
 
             do str[strl++] = c;
-            while ((c = fgetc(file)) != EOF && isdigit(c));
+            while ((c = fgetc(file)) != EOF && isalnum(c));
             
             str[strl] = 0;
             ungetc(c, file);
