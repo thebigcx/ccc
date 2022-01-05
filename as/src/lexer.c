@@ -13,7 +13,8 @@ static size_t s_tokcnt = 0;
 
 const char *insts[] =
 {
-    [INST_ADD] = "add"
+    [INST_ADD] = "add",
+    [INST_MOV] = "mov"
 };
 
 const char *regstrs[] =

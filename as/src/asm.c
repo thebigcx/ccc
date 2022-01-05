@@ -4,11 +4,16 @@
 
 #include <stdarg.h>
 #include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define ASSERT_REGMATCH(r1, r2) if (regsize(r1) != regsize(r2)) error("Mismatched register sizes.\n")
 
 static FILE *s_out = NULL;
-static struct token *s_t;
+static struct token *s_t = NULL;
+
+static struct code **s_code = NULL;
+static unsigned int s_codecnt = 0;
 
 uint8_t regcodes[] =
 {
@@ -34,6 +39,12 @@ void error(const char *format, ...)
     va_start(list, format);
     vprintf(format, list);
     va_end(list);
+}
+
+void expect(int t)
+{
+    if ((s_t++)->type != t)
+        error("Expected token\n");
 }
 
 void emitb(uint8_t b)
@@ -63,7 +74,7 @@ int regsize(int reg)
 
 #define R64(r) (regsize(r) == 64)
 
-void do_inst(int type)
+/*void do_inst(int type)
 {
     switch (type)
     {
@@ -93,7 +104,79 @@ void do_inst(int type)
                 break;
             }
         }
+
+        case INST_MOV:
+        {
+            s_t++;
+            struct token *op1 = s_t++;
+            ++s_t;
+            struct token *op2 = s_t++;
+
+            if (op1->type == T_REG && op2->type == T_REG)
+            {
+                
+            }
+        }
     }
+}*/
+
+// High bits of opcode
+uint8_t opcodehi[] =
+{
+    [INST_ADD] = 0
+};
+
+void do_inst(struct code *code)
+{
+    if (code->size == 16)
+        emitb(0x66);
+    
+    if (code->size == 64)
+        emitb(rexpre(1, regcodes[code->op1->reg] & 0b1000, 0, regcodes[code->op2->reg]));
+
+    uint8_t opcode = opcodehi[code->inst] << 2;
+
+    if (code->op2->type == CODE_ADDR)
+        opcode |= (1 << 1);
+    if (code->size != 8)
+        opcode |= 1;
+
+    emitb(opcode);
+
+    // TODO: makes assumptions that both reg operands
+    emitb(0b11000000 | (regcodes[code->op1->reg] & 0b111) << 3 | (regcodes[code->op2->reg] & 0b111));
+}
+
+struct code *parse()
+{
+    struct code *code = malloc(sizeof(struct code));
+
+    switch (s_t->type)
+    {
+        case T_LBL:
+            code->type = CODE_LBL;
+            code->sval = strdup(s_t->sval);
+            s_t++;
+            break;
+
+        case T_INST:
+            s_t++;
+            code->type = CODE_INST;
+            code->op1 = parse();
+            expect(T_COMMA);
+            code->op2 = parse();
+            code->size = code->op2->size;
+            break;
+
+        case T_REG:
+            code->type = CODE_REG;
+            code->reg  = s_t->ival;
+            code->size = regsize(code->reg);
+            s_t++;
+            break;
+    }
+
+    return code;
 }
 
 int assemble(FILE *out, struct token *toks)
@@ -103,10 +186,15 @@ int assemble(FILE *out, struct token *toks)
 
     while (s_t->type != T_EOF)
     {
-        switch (s_t->type)
+        s_code = realloc(s_code, (s_codecnt + 1) * sizeof(struct code*));
+        s_code[s_codecnt++] = parse();
+    }
+
+    for (unsigned int i = 0; i < s_codecnt; i++)
+    {
+        switch (s_code[i]->type)
         {
-            case T_LBL: break;
-            case T_INST: do_inst(s_t->ival); break;
+            case CODE_INST: do_inst(s_code[i]); break;
         }
     }
 
