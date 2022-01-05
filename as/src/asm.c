@@ -16,21 +16,47 @@ static struct code **s_code = NULL;
 static unsigned int s_codecnt = 0;
 
 uint8_t regcodes[] =
-{
-    [REG_RAX] = 0b0000,
-    [REG_RCX] = 0b0001,
-    [REG_RDX] = 0b0010,
-    [REG_RBX] = 0b0011,
+{   
+    [REG_AH]  = 0b0100,
+    [REG_CH]  = 0b0101,
+    [REG_DH]  = 0b0110,
+    [REG_BH]  = 0b0111,
 
-    [REG_AX] = 0b0000,
-    [REG_CX] = 0b0001,
-    [REG_DX] = 0b0010,
-    [REG_BX] = 0b0011,
+    [REG_AL]  = 0b0000,
+    [REG_CL]  = 0b0001,
+    [REG_DL]  = 0b0010,
+    [REG_BL]  = 0b0011,
+    [REG_SPL] = 0b0100,
+    [REG_BPL] = 0b0101,
+    [REG_SIL] = 0b0110,
+    [REG_DIL] = 0b0111,
+
+    [REG_AX]  = 0b0000,
+    [REG_CX]  = 0b0001,
+    [REG_DX]  = 0b0010,
+    [REG_BX]  = 0b0011,
+    [REG_SP]  = 0b0100,
+    [REG_BP]  = 0b0101,
+    [REG_SI]  = 0b0110,
+    [REG_DI]  = 0b0111,
 
     [REG_EAX] = 0b0000,
     [REG_ECX] = 0b0001,
     [REG_EDX] = 0b0010,
-    [REG_EBX] = 0b0011
+    [REG_EBX] = 0b0011,
+    [REG_ESP] = 0b0100,
+    [REG_EBP] = 0b0101,
+    [REG_ESI] = 0b0110,
+    [REG_EDI] = 0b0111,
+   
+    [REG_RAX] = 0b0000,
+    [REG_RCX] = 0b0001,
+    [REG_RDX] = 0b0010,
+    [REG_RBX] = 0b0011,
+    [REG_RSP] = 0b0100,
+    [REG_RBP] = 0b0101,
+    [REG_RSI] = 0b0110,
+    [REG_RDI] = 0b0111,
 };
 
 void error(const char *format, ...)
@@ -62,6 +88,20 @@ uint8_t rexpre(int w, int r, int x, int b)
     return 0b01000000 | (!!w << 3) | (!!r << 2) | (!!x << 1) | !!b;
 }
 
+// REX required registers: SPL, BPL, SIL, DIL
+#define REXREQR(r) (r == REG_SPL || r == REG_BPL || r == REG_SIL || r == REG_DIL)
+
+// Is REX prefix required
+int isrexreq(struct code *code)
+{
+    if (code->size == 64) return 1;
+
+    if (code->op1 && code->op1->type == CODE_REG && REXREQR(code->op1->reg)) return 1;
+    if (code->op2 && code->op2->type == CODE_REG && REXREQR(code->op2->reg)) return 1;
+
+    return 0;
+}
+
 int regsize(int reg)
 {
     if (reg >= REG_AH  && reg <= REG_DIL) return 8;
@@ -71,54 +111,6 @@ int regsize(int reg)
 
     return 0;
 }
-
-#define R64(r) (regsize(r) == 64)
-
-/*void do_inst(int type)
-{
-    switch (type)
-    {
-        case INST_ADD:
-        {
-            s_t++;
-            struct token *op1 = s_t++;
-            ++s_t; // TODO: expect T_COMMA
-            struct token *op2 = s_t++;
-
-            if (op1->type == T_REG && op2->type == T_REG)
-            {
-                unsigned int size = regsize(op1->ival);
-                uint8_t r1 = regcodes[op1->ival], r2 = regcodes[op2->ival];
-
-                ASSERT_REGMATCH(op1->ival, op2->ival);
-
-                if (size == 16)
-                    emitb(0x66);
-
-                if (R64(op1->ival) || r1 & 0b1000 || r2 & 0b1000)                
-                    emitb(rexpre(R64(op1->ival), r1 & 0b1000, 0, r2 & 0b1000));
-                
-                emitb(0x01);
-                emitb(0b11000000 | (r1 & 0b111) << 3 | (r2 & 0b111));
-                
-                break;
-            }
-        }
-
-        case INST_MOV:
-        {
-            s_t++;
-            struct token *op1 = s_t++;
-            ++s_t;
-            struct token *op2 = s_t++;
-
-            if (op1->type == T_REG && op2->type == T_REG)
-            {
-                
-            }
-        }
-    }
-}*/
 
 // High bits of opcode
 uint8_t opcodehi[] =
@@ -131,8 +123,8 @@ void do_inst(struct code *code)
     if (code->size == 16)
         emitb(0x66);
     
-    if (code->size == 64)
-        emitb(rexpre(1, regcodes[code->op1->reg] & 0b1000, 0, regcodes[code->op2->reg]));
+    if (isrexreq(code))
+        emitb(rexpre(code->size == 64, regcodes[code->op1->reg] & 0b1000, 0, regcodes[code->op2->reg] & 0b1000));
 
     uint8_t opcode = opcodehi[code->inst] << 2;
 

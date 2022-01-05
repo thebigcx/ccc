@@ -1,1 +1,1 @@
-    add ax, bx
+    add spl, al
