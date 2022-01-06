@@ -87,6 +87,12 @@ void pushtok(int type, char *sval, unsigned long ival)
     (*s_toks)[s_tokcnt++] = (struct token) { .type = type, .sval = sval, .ival = ival };
 }
 
+// Addressing e.g. [ebp], [rax + 2], etc
+void pushaddr()
+{
+
+}
+
 int lexfile(FILE *file, struct token **toks)
 {
     s_file = file;
@@ -98,8 +104,15 @@ int lexfile(FILE *file, struct token **toks)
         if (isspace(c)) continue;
         switch (c)
         {
-            case ':': pushtok(T_COLON, NULL, 0); continue;
-            case ',': pushtok(T_COMMA, NULL, 0); continue;
+            case ':': pushtok(T_COLON,  NULL, 0); continue;
+            case ',': pushtok(T_COMMA,  NULL, 0); continue;
+            case '[': pushtok(T_LBRACK, NULL, 0); continue;
+            case ']': pushtok(T_RBRACK, NULL, 0); continue;
+            case '+': pushtok(T_PLUS,   NULL, 0); continue;
+            case '*': pushtok(T_STAR,   NULL, 0); continue;
+            case '(': pushtok(T_LPAREN, NULL, 0); continue;
+            case ')': pushtok(T_RPAREN, NULL, 0); continue;
+                      
         }
 
         char str[32];

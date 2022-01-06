@@ -1,3 +1,1 @@
-    add ebx, 0xdeadbeef
-    xor eax, eax
-    sub bl, al
+    add [ebx], eax

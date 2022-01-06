@@ -21,6 +21,12 @@ struct code
         int reg;
         unsigned long imm;
         char *sval;
+
+        struct
+        {
+            unsigned long disp, scale;
+            int base, index;
+        } addr; // Addressing
     };
 };
 

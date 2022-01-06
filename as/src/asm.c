@@ -204,9 +204,61 @@ void do_inst(struct code *code)
     }
 }
 
+void parse_addr(struct code *code)
+{
+    code->type = CODE_ADDR;
+
+    expect(T_LBRACK);
+    if (s_t->type == T_IMM)
+    {
+        code->addr.disp = s_t->ival;
+        s_t++;
+        expect(T_RBRACK);
+        return;
+    }
+    else if (s_t->type == T_LPAREN)
+        goto index;
+
+    code->addr.base = s_t->ival;
+    expect(T_REG);
+    
+    if (s_t->type == T_RBRACK)
+    {
+        s_t++;
+        return;
+    }
+
+    expect(T_PLUS);
+
+    if (s_t->type == T_IMM)
+    {
+        code->addr.disp = s_t->ival;
+        s_t++;
+        expect(T_RBRACK);
+        return;
+    }
+
+index:
+    expect(T_LPAREN);
+
+    code->addr.index = s_t->ival;
+    expect(T_REG);
+    expect(T_STAR);
+    
+    code->addr.scale = s_t->ival;
+    expect(T_IMM);
+    expect(T_RPAREN);
+
+    if (s_t->type == T_RBRACK) return;
+
+    expect(T_PLUS);
+    code->addr.disp = s_t->ival;
+    expect(T_RBRACK);
+}
+
 struct code *parse()
 {
-    struct code *code = malloc(sizeof(struct code));
+    struct code *code = calloc(1, sizeof(struct code));
 
     switch (s_t->type)
     {
@@ -240,6 +292,8 @@ struct code *parse()
             code->size = code->imm < UINT8_MAX ? 8 : code->imm < UINT16_MAX ? 16 : code->imm < UINT32_MAX ? 32 : 64;
             s_t++;
             break;
+
+        case T_LBRACK: parse_addr(code); break;
     }
 
     return code;
