@@ -186,9 +186,15 @@ void do_instarithop2(struct code *code)
 
     if (addr)
     {
-        // TODO: should be set to -1, some addressing modes require a 0 displacement
-        printf("%d\n", addr->addr.base);
-        if (!code->addr.disp) modrm |= regcodes[addr->addr.base] & 0b111;
+        if (addr->addr.isdisp)
+        {
+            if (immsize(addr->addr.disp) == 8) modrm |= 0b01 << 6;
+            else modrm |= 0b10 << 6;
+        }
+        // else MOD=00
+
+        if (addr->addr.index == -1)
+            modrm |= regcodes[addr->addr.base] & 0b111;
     }
     else modrm |= 0b11000000;
 
@@ -202,6 +208,9 @@ void do_instarithop2(struct code *code)
         modrm |= regcodes[code->op1->reg] & 0b111;
 
     emitb(modrm);
+
+    if (addr && addr->addr.isdisp)
+        emit_imm(addr->addr.disp);
 
     if (code->op2->type == CODE_IMM)
         emit_imm(code->op2->imm);
@@ -225,10 +234,13 @@ void do_inst(struct code *code)
 void parse_addr(struct code *code)
 {
     code->type = CODE_ADDR;
+    code->addr.base  = -1;
+    code->addr.index = -1;
 
     expect(T_LBRACK);
     if (s_t->type == T_IMM)
     {
+        code->addr.isdisp = 1;
         code->addr.disp = s_t->ival;
         code->size = immsize(s_t->ival);
         s_t++;
@@ -252,6 +264,7 @@ void parse_addr(struct code *code)
 
     if (s_t->type == T_IMM)
     {
+        code->addr.isdisp = 1;
         code->addr.disp = s_t->ival;
         s_t++;
         expect(T_RBRACK);
@@ -273,6 +286,7 @@ index:
     if (s_t->type == T_RBRACK) return;
 
     expect(T_PLUS);
+    code->addr.isdisp = 1;
     code->addr.disp = s_t->ival;
     expect(T_RBRACK);
 }
@@ -297,7 +311,7 @@ struct code *parse()
             code->op1 = parse();
             expect(T_COMMA);
             code->op2 = parse();
-            code->size = code->op2->size;
+            code->size = code->op2->size; // TODO: don't do this
             break;
 
         case T_REG:

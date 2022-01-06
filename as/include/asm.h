@@ -24,6 +24,7 @@ struct code
 
         struct
         {
+            int isdisp; // Is displaced address
             unsigned long disp, scale;
             int base, index;
         } addr; // Addressing
