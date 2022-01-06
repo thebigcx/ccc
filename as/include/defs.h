@@ -44,8 +44,12 @@ enum REG
     REG_RDI,
 };
 
-enum INST
-{
-    INST_ADD,
-    INST_MOV
-};
+// Simple instructions (encode easily)
+#define INST_ADD 0
+#define INST_OR  1
+#define INST_ADC 2
+#define INST_SBB 3
+#define INST_AND 4
+#define INST_SUB 5
+#define INST_XOR 6
+#define INST_CMP 7

@@ -78,9 +78,32 @@ void emitb(uint8_t b)
     fwrite(&b, 1, 1, s_out);
 }
 
-void emitw(uint16_t b)
+// Emit words, longs, and quadwords with proper endianess/ordering
+// e.g. 0xdeadbeef as an immediate encodes to FE BE   AD DE
+void emitw(uint16_t w)
 {
-    fwrite(&b, 2, 1, s_out);
+    emitb(w & 0xff);
+    emitb(w >> 8);
+}
+
+void emitl(uint32_t l)
+{
+    emitw(l & 0xffff);
+    emitw(l >> 16);
+}
+
+void emitq(uint64_t q)
+{
+    emitl(q & 0xffffffff);
+    emitl(q >> 32);
+}
+
+void emit_imm(uint64_t imm)
+{
+    if (imm < UINT8_MAX) emitb(imm);
+    else if (imm < UINT16_MAX) emitw(imm);
+    else if (imm < UINT32_MAX) emitl(imm);
+    else emitq(imm);
 }
 
 uint8_t rexpre(int w, int r, int x, int b)
@@ -111,32 +134,74 @@ int regsize(int reg)
 
     return 0;
 }
-
+/*
 // High bits of opcode
 uint8_t opcodehi[] =
 {
-    [INST_ADD] = 0
+    [INST_ADD] = 0,
+    [INST_OR]  = 1,
+    [INST_ADC] = 2,
+    [INST_SBB] = 3,
+    [INST_SUB] = 4,
+    [INST_XOR] = 5,
+    [INST_CMP] = 6
 };
-
-void do_inst(struct code *code)
+*/
+// For instructions with opcodes < 0x40,
+// follow a simple pattern
+void do_instarithop2(struct code *code)
 {
     if (code->size == 16)
         emitb(0x66);
     
     if (isrexreq(code))
-        emitb(rexpre(code->size == 64, regcodes[code->op1->reg] & 0b1000, 0, regcodes[code->op2->reg] & 0b1000));
+    {
+        int r = code->op1->type == CODE_REG ? regcodes[code->op1->reg] & 0b1000 : 0;
+        int b = code->op2->type == CODE_REG ? regcodes[code->op2->reg] & 0b1000 : 0;
+        emitb(rexpre(code->size == 64, r, 0, b));
+    }
 
-    uint8_t opcode = opcodehi[code->inst] << 2;
+    uint8_t opcode = code->inst << 3;
 
-    if (code->op2->type == CODE_ADDR)
-        opcode |= (1 << 1);
-    if (code->size != 8)
-        opcode |= 1;
+    if (code->op2->type == CODE_IMM)
+    {
+        opcode |= 0x80;
+        if (code->op2->size == 8 && code->op1->size != 8) opcode |= 3;
+        else if (code->op2->size != 8) opcode |= 1;
+    }
+    else
+    {
+        if (code->op1->type == CODE_ADDR)
+            opcode |= (1 << 1);
+        if (code->size != 8)
+            opcode |= 1;
+    }
 
     emitb(opcode);
 
     // TODO: makes assumptions that both reg operands
-    emitb(0b11000000 | (regcodes[code->op1->reg] & 0b111) << 3 | (regcodes[code->op2->reg] & 0b111));
+    if (code->op2->type == CODE_IMM)
+    {
+        emitb(0b11000000 | (code->inst << 3) | (regcodes[code->op1->reg] & 0b111));
+        emit_imm(code->op2->imm);
+    }
+    else
+        emitb(0b11000000 | (regcodes[code->op2->reg] & 0b111) << 3 | (regcodes[code->op1->reg] & 0b111));
+}
+
+void do_inst(struct code *code)
+{
+    switch (code->inst)
+    {
+        case INST_ADD:
+        case INST_OR:
+        case INST_ADC:
+        case INST_SBB:
+        case INST_AND:
+        case INST_SUB:
+        case INST_XOR:
+        case INST_CMP: do_instarithop2(code); break;
+    }
 }
 
 struct code *parse()
@@ -152,8 +217,10 @@ struct code *parse()
             break;
 
         case T_INST:
-            s_t++;
+            code->inst = s_t->ival;
             code->type = CODE_INST;
+            
+            s_t++;
             code->op1 = parse();
             expect(T_COMMA);
             code->op2 = parse();
@@ -164,6 +231,13 @@ struct code *parse()
             code->type = CODE_REG;
             code->reg  = s_t->ival;
             code->size = regsize(code->reg);
+            s_t++;
+            break;
+
+        case T_IMM:
+            code->type = CODE_IMM;
+            code->imm  = s_t->ival;
+            code->size = code->imm < UINT8_MAX ? 8 : code->imm < UINT16_MAX ? 16 : code->imm < UINT32_MAX ? 32 : 64;
             s_t++;
             break;
     }

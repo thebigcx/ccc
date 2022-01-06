@@ -7,6 +7,7 @@
 #define CODE_LBL  1 // Label
 #define CODE_REG  2 // Register
 #define CODE_ADDR 3 // Address or displacement
+#define CODE_IMM  4 // Immediate
 
 struct code
 {
@@ -18,6 +19,7 @@ struct code
     {
         int inst;
         int reg;
+        unsigned long imm;
         char *sval;
     };
 };

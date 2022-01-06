@@ -14,7 +14,13 @@ static size_t s_tokcnt = 0;
 const char *insts[] =
 {
     [INST_ADD] = "add",
-    [INST_MOV] = "mov"
+    [INST_OR]  = "or",
+    [INST_ADC] = "adc",
+    [INST_SBB] = "sbb",
+    [INST_AND] = "and",
+    [INST_SUB] = "sub",
+    [INST_XOR] = "xor",
+    [INST_CMP] = "cmp"
 };
 
 const char *regstrs[] =
@@ -100,17 +106,31 @@ int lexfile(FILE *file, struct token **toks)
         int strl = 0;
         if (isalnum(c) || c == '_')
         {
-            int dig = isdigit(c);
-
             do str[strl++] = c;
             while ((c = fgetc(file)) != EOF && isalnum(c));
             
             str[strl] = 0;
             ungetc(c, file);
 
-            if (dig)
+            if (isdigit(str[0]))
             {
-                unsigned long v = strtoull(str, NULL, 10);
+                char *strp = str;
+                int base = 10;
+
+                if (str[0] == '0')
+                {
+                    if (str[1] == 'x')
+                    {
+                        strp += 2;
+                        base = 16;
+                    }
+                    else if (strl > 1)
+                    {
+                        strp++;
+                        base = 8;
+                    }
+                }
+                unsigned long v = strtoull(str, NULL, base);
                 pushtok(T_IMM, NULL, v);
             }
             else
