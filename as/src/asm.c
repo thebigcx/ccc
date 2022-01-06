@@ -134,25 +134,28 @@ int regsize(int reg)
 
     return 0;
 }
-/*
-// High bits of opcode
-uint8_t opcodehi[] =
+
+int immsize(unsigned long imm)
 {
-    [INST_ADD] = 0,
-    [INST_OR]  = 1,
-    [INST_ADC] = 2,
-    [INST_SBB] = 3,
-    [INST_SUB] = 4,
-    [INST_XOR] = 5,
-    [INST_CMP] = 6
-};
-*/
+    return imm < UINT8_MAX ? 8 : imm < UINT16_MAX ? 16 : imm < UINT32_MAX ? 32 : 64;
+}
+
+struct code *addrop(struct code *code)
+{
+    if (code->op1->type == CODE_ADDR) return code->op1;
+    if (code->op2->type == CODE_ADDR) return code->op2;
+    return NULL;
+}
+
 // For instructions with opcodes < 0x40,
 // follow a simple pattern
 void do_instarithop2(struct code *code)
 {
     if (code->size == 16)
         emitb(0x66);
+
+    if (addrop(code) && addrop(code)->size == 32)
+        emitb(0x67);
     
     if (isrexreq(code))
     {
@@ -167,26 +170,41 @@ void do_instarithop2(struct code *code)
     {
         opcode |= 0x80;
         if (code->op2->size == 8 && code->op1->size != 8) opcode |= 3;
-        else if (code->op2->size != 8) opcode |= 1;
     }
-    else
-    {
-        if (code->op1->type == CODE_ADDR)
-            opcode |= (1 << 1);
-        if (code->size != 8)
-            opcode |= 1;
-    }
+    else if (code->op2->type == CODE_ADDR)
+        opcode |= (1 << 1);
+    
+    if (code->size != 8)
+        opcode |= 1;
 
     emitb(opcode);
 
+    uint8_t modrm = 0;
+
+    struct code *addr = code->op1->type == CODE_ADDR ? code->op1
+                      : code->op2->type == CODE_ADDR ? code->op2 : NULL;
+
+    if (addr)
+    {
+        // TODO: should be set to -1, some addressing modes require a 0 displacement
+        printf("%d\n", addr->addr.base);
+        if (!code->addr.disp) modrm |= regcodes[addr->addr.base] & 0b111;
+    }
+    else modrm |= 0b11000000;
+
     // TODO: makes assumptions that both reg operands
     if (code->op2->type == CODE_IMM)
-    {
-        emitb(0b11000000 | (code->inst << 3) | (regcodes[code->op1->reg] & 0b111));
+        modrm |= code->inst << 3;
+    else if (code->op2->type == CODE_REG)
+        modrm |= (regcodes[code->op2->reg] & 0b111) << 3;
+    
+    if (code->op1->type == CODE_REG)
+        modrm |= regcodes[code->op1->reg] & 0b111;
+
+    emitb(modrm);
+
+    if (code->op2->type == CODE_IMM)
         emit_imm(code->op2->imm);
-    }
-    else
-        emitb(0b11000000 | (regcodes[code->op2->reg] & 0b111) << 3 | (regcodes[code->op1->reg] & 0b111));
 }
 
 void do_inst(struct code *code)
@@ -212,6 +230,7 @@ void parse_addr(struct code *code)
     if (s_t->type == T_IMM)
     {
         code->addr.disp = s_t->ival;
+        code->size = immsize(s_t->ival);
         s_t++;
         expect(T_RBRACK);
         return;
@@ -220,6 +239,7 @@ void parse_addr(struct code *code)
         goto index;
 
     code->addr.base = s_t->ival;
+    code->size = regsize(code->addr.base);
     expect(T_REG);
     
     if (s_t->type == T_RBRACK)
@@ -242,6 +262,7 @@ index:
     expect(T_LPAREN);
 
     code->addr.index = s_t->ival;
+    code->size = regsize(code->addr.index);
     expect(T_REG);
     expect(T_STAR);
     
@@ -289,7 +310,7 @@ struct code *parse()
         case T_IMM:
             code->type = CODE_IMM;
             code->imm  = s_t->ival;
-            code->size = code->imm < UINT8_MAX ? 8 : code->imm < UINT16_MAX ? 16 : code->imm < UINT32_MAX ? 32 : 64;
+            code->size = immsize(code->imm);
             s_t++;
             break;
 
