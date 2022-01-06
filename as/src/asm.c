@@ -65,6 +65,8 @@ void error(const char *format, ...)
     va_start(list, format);
     vprintf(format, list);
     va_end(list);
+    abort();
+    exit(-1);
 }
 
 void expect(int t)
@@ -151,12 +153,12 @@ struct code *addrop(struct code *code)
 // follow a simple pattern
 void do_instarithop2(struct code *code)
 {
+    if (addrop(code) && addrop(code)->size == 32)
+        emitb(0x67);
+
     if (code->size == 16)
         emitb(0x66);
 
-    if (addrop(code) && addrop(code)->size == 32)
-        emitb(0x67);
-    
     if (isrexreq(code))
     {
         int r = code->op1->type == CODE_REG ? regcodes[code->op1->reg] & 0b1000 : 0;
@@ -180,6 +182,7 @@ void do_instarithop2(struct code *code)
     emitb(opcode);
 
     uint8_t modrm = 0;
+    uint8_t sib = 0;
 
     struct code *addr = code->op1->type == CODE_ADDR ? code->op1
                       : code->op2->type == CODE_ADDR ? code->op2 : NULL;
@@ -195,10 +198,23 @@ void do_instarithop2(struct code *code)
 
         if (addr->addr.index == -1)
             modrm |= regcodes[addr->addr.base] & 0b111;
+        else
+        {
+            modrm |= 0b100;
+
+            uint8_t s = addr->addr.scale;
+            uint8_t factor = s == 8 ? 3 
+                           : s == 4 ? 2
+                           : s == 2 ? 1
+                           : 0; // TODO: error if invalid scale
+
+            sib |= factor << 6;
+            sib |= (regcodes[addr->addr.index] & 0b111) << 3;
+            sib |= (regcodes[addr->addr.base] & 0b111);
+        }
     }
     else modrm |= 0b11000000;
 
-    // TODO: makes assumptions that both reg operands
     if (code->op2->type == CODE_IMM)
         modrm |= code->inst << 3;
     else if (code->op2->type == CODE_REG)
@@ -208,6 +224,9 @@ void do_instarithop2(struct code *code)
         modrm |= regcodes[code->op1->reg] & 0b111;
 
     emitb(modrm);
+
+    if (addr && addr->addr.index)
+        emitb(sib);
 
     if (addr && addr->addr.isdisp)
         emit_imm(addr->addr.disp);
@@ -283,7 +302,11 @@ index:
     expect(T_IMM);
     expect(T_RPAREN);
 
-    if (s_t->type == T_RBRACK) return;
+    if (s_t->type == T_RBRACK)
+    {
+        s_t++;
+        return;
+    }
 
     expect(T_PLUS);
     code->addr.isdisp = 1;
