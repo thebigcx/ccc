@@ -1,1 +1,1 @@
-    add [ebx + (edx * 2)], eax
+    add [(edx * 2) + 100], eax

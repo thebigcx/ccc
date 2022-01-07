@@ -108,6 +108,17 @@ void emit_imm(uint64_t imm)
     else emitq(imm);
 }
 
+void emit(uint64_t v, int size)
+{
+    switch (size)
+    {
+        case 8:  emitb(v & 0xff);       return;
+        case 16: emitw(v & 0xffff);     return;
+        case 32: emitl(v & 0xffffffff); return;
+        case 64: emitq(v);              return;
+    }
+}
+
 uint8_t rexpre(int w, int r, int x, int b)
 {
     return 0b01000000 | (!!w << 3) | (!!r << 2) | (!!x << 1) | !!b;
@@ -182,21 +193,34 @@ void do_instarithop2(struct code *code)
     emitb(opcode);
 
     uint8_t modrm = 0;
-    uint8_t sib = 0;
-
+    
     struct code *addr = code->op1->type == CODE_ADDR ? code->op1
                       : code->op2->type == CODE_ADDR ? code->op2 : NULL;
+    
+    uint8_t sib = 0;
+    uint8_t disp_size = addr->size;
 
     if (addr)
     {
         if (addr->addr.isdisp)
         {
-            if (immsize(addr->addr.disp) == 8) modrm |= 0b01 << 6;
-            else modrm |= 0b10 << 6;
+            if (addr->addr.base != -1)
+            {
+                if (immsize(addr->addr.disp) == 8)
+                {
+                    modrm |= 0b01 << 6;
+                    disp_size = 8;
+                }
+                else modrm |= 0b10 << 6;
+            }
+            else
+            {
+                sib |= 0b101;
+            }
         }
         // else MOD=00
 
-        if (addr->addr.index == -1)
+        if (addr->addr.index == -1 && addr->addr.base != -1)
             modrm |= regcodes[addr->addr.base] & 0b111;
         else
         {
@@ -210,7 +234,11 @@ void do_instarithop2(struct code *code)
 
             sib |= factor << 6;
             sib |= (regcodes[addr->addr.index] & 0b111) << 3;
-            sib |= (regcodes[addr->addr.base] & 0b111);
+            
+            if (addr->addr.base == -1)
+                sib |= 0b101;
+            else
+                sib |= (regcodes[addr->addr.base] & 0b111);
         }
     }
     else modrm |= 0b11000000;
@@ -229,7 +257,7 @@ void do_instarithop2(struct code *code)
         emitb(sib);
 
     if (addr && addr->addr.isdisp)
-        emit_imm(addr->addr.disp);
+        emit(addr->addr.disp, disp_size);
 
     if (code->op2->type == CODE_IMM)
         emit_imm(code->op2->imm);
@@ -311,6 +339,7 @@ index:
     expect(T_PLUS);
     code->addr.isdisp = 1;
     code->addr.disp = s_t->ival;
+    expect(T_IMM);
     expect(T_RBRACK);
 }
 
