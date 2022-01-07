@@ -232,7 +232,7 @@ void do_instarithop2(struct code *code)
         }
         // else MOD=00
 
-        if (addr->addr.index == -1 && addr->addr.base != -1)
+        if (addr->addr.index == -1 && addr->addr.base != -1 && addr->addr.base != REG_ESP)
             modrm |= regcodes[addr->addr.base] & 0b111;
         else
         {
@@ -245,10 +245,16 @@ void do_instarithop2(struct code *code)
                            : 0; // TODO: error if invalid scale
 
             sib |= factor << 6;
-            sib |= (regcodes[addr->addr.index] & 0b111) << 3;
+
+            if (addr->addr.index == -1)
+                sib |= 0b100 << 3;
+            else
+                sib |= (regcodes[addr->addr.index] & 0b111) << 3;
             
             if (addr->addr.base == -1)
                 sib |= 0b101;
+            else if (addr->addr.base == REG_ESP)
+                sib |= (regcodes[addr->addr.base] & 0b111);
             else
                 sib |= (regcodes[addr->addr.base] & 0b111);
         }
@@ -301,7 +307,7 @@ void parse_addr(struct code *code)
     {
         code->addr.isdisp = 1;
         code->addr.disp = s_t->ival;
-        code->size = immsize(s_t->ival);
+        code->size = 32;
         s_t++;
         expect(T_RBRACK);
         return;

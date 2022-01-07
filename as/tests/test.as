@@ -1,1 +1,1 @@
-    add u8 [(edx * 2) + 100], 10
+    add [esp], eax
