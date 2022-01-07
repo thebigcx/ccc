@@ -17,6 +17,10 @@ enum TOKEN
     T_RPAREN,
     T_PLUS,
     T_STAR,
+    T_U8,
+    T_U16,
+    T_U32,
+    T_U64,
     T_EOF
 };
 

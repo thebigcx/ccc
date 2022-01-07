@@ -75,6 +75,18 @@ void expect(int t)
         error("Expected token\n");
 }
 
+int size_prefix()
+{
+    switch (s_t->type)
+    {
+        case T_U8:  return 8;
+        case T_U16: return 16;
+        case T_U32: return 32;
+        case T_U64: return 64;
+    }
+    return 0;
+}
+
 void emitb(uint8_t b)
 {
     fwrite(&b, 1, 1, s_out);
@@ -182,7 +194,7 @@ void do_instarithop2(struct code *code)
     if (code->op2->type == CODE_IMM)
     {
         opcode |= 0x80;
-        if (code->op2->size == 8 && code->op1->size != 8) opcode |= 3;
+        if (code->op2->size == 8 && code->size != 8) opcode |= 3;
     }
     else if (code->op2->type == CODE_ADDR)
         opcode |= (1 << 1);
@@ -360,10 +372,12 @@ struct code *parse()
             code->type = CODE_INST;
             
             s_t++;
+            if ((code->size = size_prefix())) s_t++;
+
             code->op1 = parse();
             expect(T_COMMA);
             code->op2 = parse();
-            code->size = code->op2->size; // TODO: don't do this
+            if (!code->size) code->size = code->op2->size; // TODO: don't do this
             break;
 
         case T_REG:

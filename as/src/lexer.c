@@ -67,17 +67,20 @@ const char *regstrs[] =
     [REG_RDI] = "rdi"
 };
 
-int insttype(const char *sval)
+static const char *keywords[] =
 {
-    for (unsigned int i = 0; i < ARRLEN(insts); i++)
-        if (!strcmp(insts[i], sval)) return i;
-    return -1;
-}
+    [T_U8]  = "u8",
+    [T_U16] = "u16",
+    [T_U32] = "u32",
+    [T_U64] = "u64"
+};
 
-int regtype(const char *sval)
+#define FIND(sval, arr) (find(sval, arr, ARRLEN(arr)))
+
+static int find(const char *sval, const char **arr, size_t len)
 {
-    for (unsigned int i = 0; i < ARRLEN(regstrs); i++)
-        if (!strcmp(regstrs[i], sval)) return i;
+    for (unsigned int i = 0; i < len; i++)
+        if (arr[i] && !strcmp(arr[i], sval)) return i;
     return -1;
 }
 
@@ -85,12 +88,6 @@ void pushtok(int type, char *sval, unsigned long ival)
 {
     *s_toks = realloc(*s_toks, (s_tokcnt + 1) * sizeof(struct token));
     (*s_toks)[s_tokcnt++] = (struct token) { .type = type, .sval = sval, .ival = ival };
-}
-
-// Addressing e.g. [ebp], [rax + 2], etc
-void pushaddr()
-{
-
 }
 
 int lexfile(FILE *file, struct token **toks)
@@ -149,8 +146,9 @@ int lexfile(FILE *file, struct token **toks)
             else
             {
                 int t;
-                if ((t = insttype(str)) != -1) pushtok(T_INST, NULL, t);
-                else if ((t = regtype(str)) != -1) pushtok(T_REG, NULL, t);
+                if ((t = FIND(str, insts)) != -1) pushtok(T_INST, NULL, t);
+                else if ((t = FIND(str, regstrs)) != -1) pushtok(T_REG, NULL, t);
+                else if ((t = FIND(str, keywords)) != -1) pushtok(t, NULL, 0);
                 else pushtok(T_LBL, strdup(str), 0);
             }
         }
