@@ -112,14 +112,6 @@ void emitq(uint64_t q)
     emitl(q >> 32);
 }
 
-void emit_imm(uint64_t imm)
-{
-    if (imm < UINT8_MAX) emitb(imm);
-    else if (imm < UINT16_MAX) emitw(imm);
-    else if (imm < UINT32_MAX) emitl(imm);
-    else emitq(imm);
-}
-
 void emit(uint64_t v, int size)
 {
     switch (size)
@@ -131,24 +123,8 @@ void emit(uint64_t v, int size)
     }
 }
 
-uint8_t rexpre(int w, int r, int x, int b)
-{
-    return 0b01000000 | (!!w << 3) | (!!r << 2) | (!!x << 1) | !!b;
-}
-
-// REX required registers: SPL, BPL, SIL, DIL
-#define REXREQR(c) (c->size == 8 && (c->reg == REG_SP || c->reg == REG_BP || c->reg == REG_SI || c->reg == REG_DI))
-
-// Is REX prefix required
-int isrexreq(struct code *code)
-{
-    if (code->size == 64) return 1;
-
-    if (code->op1 && code->op1->type == CODE_REG && REXREQR(code->op1)) return 1;
-    if (code->op2 && code->op2->type == CODE_REG && REXREQR(code->op2)) return 1;
-
-    return 0;
-}
+// REX required uniform byte registers: SPL, BPL, SIL, DIL
+#define UNIBREG(c) (c->type == CODE_REG && c->size == 8 && (c->reg == REG_SP || c->reg == REG_BP || c->reg == REG_SI || c->reg == REG_DI))
 
 int regsize(int reg)
 {
@@ -172,23 +148,8 @@ struct code *addrop(struct code *code)
     return NULL;
 }
 
-// For instructions with opcodes < 0x40,
-// follow a simple pattern
-void do_instarithop2(struct code *code)
+uint8_t opcode(struct code *code)
 {
-    if (addrop(code) && addrop(code)->size == 32)
-        emitb(0x67);
-
-    if (code->size == 16)
-        emitb(0x66);
-
-    if (isrexreq(code))
-    {
-        int r = code->op1->type == CODE_REG ? code->op1->reg & 0b1000 : 0;
-        int b = code->op2->type == CODE_REG ? code->op2->reg & 0b1000 : 0;
-        emitb(rexpre(code->size == 64, r, 0, b));
-    }
-
     uint8_t opcode = code->inst << 3;
 
     if (code->op2->type == CODE_IMM)
@@ -202,83 +163,98 @@ void do_instarithop2(struct code *code)
     if (code->size != 8)
         opcode |= 1;
 
-    emitb(opcode);
+    return opcode;
+}
 
-    uint8_t modrm = 0;
-    
-    struct code *addr = code->op1->type == CODE_ADDR ? code->op1
-                      : code->op2->type == CODE_ADDR ? code->op2 : NULL;
-    
-    uint8_t sib = 0;
-    uint8_t disp_size = addr->size;
+void emit_rex(struct code *code, struct modrm *modrm, struct sib *sib)
+{
+    uint8_t rex = 0b01000000;
+    if (code->size == 64) rex |= (1 << 3);
 
+    rex |= !!(modrm->reg & 0b1000) << 2;
+    rex |= !!(sib->index & 0b1000) << 1;
+
+    if (sib->used) rex |= !!(sib->base & 0b1000);
+    else rex |= !!(modrm->rm & 0b1000);
+
+    if (rex != 0b01000000 || UNIBREG(code->op1) || UNIBREG(code->op2))
+        emitb(rex);
+}
+
+// Instructions with 2 operands
+void do_inst2(struct code *code)
+{
+    switch (code->inst)
+    {
+        
+    }
+}
+
+// For instructions with opcodes < 0x40,
+// follow a simple pattern
+void do_instarithop2(struct code *code)
+{
+    if (addrop(code) && addrop(code)->size == 32)
+        emitb(0x67);
+
+    if (code->size == 16)
+        emitb(0x66);
+    
+    struct modrm modrm = { 0 };
+    struct sib sib = { 0 };
+
+    struct code *addr = addrop(code);
+    
     if (addr)
     {
         if (addr->addr.isdisp)
         {
             if (addr->addr.base != -1)
-            {
-                if (immsize(addr->addr.disp) == 8)
-                {
-                    modrm |= 0b01 << 6;
-                    disp_size = 8;
-                }
-                else modrm |= 0b10 << 6;
-            }
+                modrm.mod = immsize(addr->addr.disp) == 8 ? 1 : 2;
             else
-            {
-                sib |= 0b101;
-            }
+                sib.base = 0b101;
         }
         // else MOD=00
 
         if (addr->addr.index == -1 && addr->addr.base != -1 && addr->addr.base != REG_SP)
-            modrm |= addr->addr.base & 0b111;
+            modrm.rm = addr->addr.base;
         else
         {
-            modrm |= 0b100;
+            modrm.rm = 0b100;
 
             uint8_t s = addr->addr.scale;
-            uint8_t factor = s == 8 ? 3 
-                           : s == 4 ? 2
-                           : s == 2 ? 1
-                           : 0; // TODO: error if invalid scale
+            sib.scale = s == 8 ? 3 
+                      : s == 4 ? 2
+                      : s == 2 ? 1
+                      : 0; // TODO: error if invalid scale
 
-            sib |= factor << 6;
-
-            if (addr->addr.index == -1)
-                sib |= 0b100 << 3;
-            else
-                sib |= (addr->addr.index & 0b111) << 3;
-            
-            if (addr->addr.base == -1)
-                sib |= 0b101;
-            else if (addr->addr.base == REG_SP)
-                sib |= (addr->addr.base & 0b111);
-            else
-                sib |= (addr->addr.base & 0b111);
+            sib.index = addr->addr.index == -1 ? 0b100 : addr->addr.index;
+            sib.base = addr->addr.base == -1 ? 0b101 : addr->addr.base;
+            sib.used = 1;
         }
     }
-    else modrm |= 0b11000000;
+    else modrm.mod = 3;
 
     if (code->op2->type == CODE_IMM)
-        modrm |= code->inst << 3;
+        modrm.reg = code->inst;
     else if (code->op2->type == CODE_REG)
-        modrm |= (code->op2->reg & 0b111) << 3;
+        modrm.reg = code->op2->reg;
     
     if (code->op1->type == CODE_REG)
-        modrm |= code->op1->reg & 0b111;
+        modrm.rm = code->op1->reg;
 
-    emitb(modrm);
+    emit_rex(code, &modrm, &sib);
+    emitb(opcode(code));
+    emitb(modrm.mod << 6 | modrm.reg << 3 | modrm.rm);
 
-    if (addr && addr->addr.index)
-        emitb(sib);
+    if (sib.used)
+        emitb(sib.scale << 6 | sib.index << 3 | sib.base);
 
     if (addr && addr->addr.isdisp)
-        emit(addr->addr.disp, disp_size);
+        emit(addr->addr.disp, modrm.mod == 1 ? 8 : addr->size);
 
     if (code->op2->type == CODE_IMM)
-        emit_imm(code->op2->imm);
+        emit(code->op2->imm, immsize(code->op2->imm));
 }
 
 void do_inst(struct code *code)

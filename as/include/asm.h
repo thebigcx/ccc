@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #define CODE_INST 0 // Instruction
 #define CODE_LBL  1 // Label
@@ -25,6 +26,17 @@
 #define REG_R13 0b1101
 #define REG_R14 0b1110
 #define REG_R15 0b1111
+
+struct modrm
+{
+    uint8_t mod, reg, rm;
+};
+
+struct sib
+{
+    uint8_t scale, index, base;
+    int used;
+};
 
 struct code
 {
