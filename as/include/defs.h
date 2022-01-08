@@ -1,49 +1,21 @@
 #pragma once
 
-// Lexer register names
-enum REG
-{ 
-    LREG_AH,
-    LREG_BH,
-    LREG_CH,
-    LREG_DH,
-
-    LREG_AL,
-    LREG_BL,
-    LREG_CL,
-    LREG_DL,
-    LREG_SPL,
-    LREG_BPL,
-    LREG_SIL,
-    LREG_DIL,
-
-    LREG_AX,
-    LREG_BX,
-    LREG_CX,
-    LREG_DX,
-    LREG_SP,
-    LREG_BP,
-    LREG_SI,
-    LREG_DI,
-
-    LREG_EAX,
-    LREG_EBX,
-    LREG_ECX,
-    LREG_EDX,
-    LREG_ESP,
-    LREG_EBP,
-    LREG_ESI,
-    LREG_EDI,
-
-    LREG_RAX,
-    LREG_RBX,
-    LREG_RCX,
-    LREG_RDX,
-    LREG_RSP,
-    LREG_RBP,
-    LREG_RSI,
-    LREG_RDI,
-};
+#define REG_AX  0b0000
+#define REG_CX  0b0001
+#define REG_DX  0b0010
+#define REG_BX  0b0011
+#define REG_SP  0b0100
+#define REG_BP  0b0101
+#define REG_SI  0b0110
+#define REG_DI  0b0111
+#define REG_R8  0b1000
+#define REG_R9  0b1001
+#define REG_R10 0b1010
+#define REG_R11 0b1011
+#define REG_R12 0b1100
+#define REG_R13 0b1101
+#define REG_R14 0b1110
+#define REG_R15 0b1111
 
 enum INST
 {

@@ -1,5 +1,6 @@
 #include <lexer.h>
 #include <asm.h>
+#include <parse.h>
 
 #include <stdio.h>
 
@@ -30,8 +31,12 @@ int main(int argc, char **argv)
     struct token *toks;
     TRY(lexfile(in, &toks));
 
+    struct code **code = NULL;
+    size_t codecnt = 0;
+    TRY(parse_file(&code, &codecnt, toks));
+
     FILE *out = fopen("out.bin", "w+");
-    TRY(assemble(out, toks));
+    TRY(assemble(out, code, codecnt));
 
     fclose(in);
     fclose(out);
