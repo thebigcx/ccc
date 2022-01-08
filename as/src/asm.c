@@ -124,7 +124,7 @@ void emit(uint64_t v, int size)
 }
 
 // REX required uniform byte registers: SPL, BPL, SIL, DIL
-#define UNIBREG(c) (c->type == CODE_REG && c->size == 8 && (c->reg == REG_SP || c->reg == REG_BP || c->reg == REG_SI || c->reg == REG_DI))
+#define UNIBREG(c) (c && c->type == CODE_REG && c->size == 8 && (c->reg == REG_SP || c->reg == REG_BP || c->reg == REG_SI || c->reg == REG_DI))
 
 int regsize(int reg)
 {
@@ -143,8 +143,8 @@ int immsize(unsigned long imm)
 
 struct code *addrop(struct code *code)
 {
-    if (code->op1->type == CODE_ADDR) return code->op1;
-    if (code->op2->type == CODE_ADDR) return code->op2;
+    if (code->op1 && code->op1->type == CODE_ADDR) return code->op1;
+    if (code->op2 && code->op2->type == CODE_ADDR) return code->op2;
     return NULL;
 }
 
@@ -166,10 +166,13 @@ uint8_t opcode_arith2(struct code *code)
     return opcode;
 }
 
+// Defaults to 64-bit
+#define DEF64(c) (c == INST_PUSH || c == INST_POP)
+
 void emit_rex(struct code *code, struct modrm *modrm, struct sib *sib)
 {
     uint8_t rex = 0b01000000;
-    if (code->size == 64) rex |= (1 << 3);
+    if (code->size == 64 && !DEF64(code->inst)) rex |= (1 << 3);
 
     rex |= !!(modrm->reg & 0b1000) << 2;
     rex |= !!(sib->index & 0b1000) << 1;
@@ -214,7 +217,7 @@ void encode_addr(struct code *addr, struct modrm *modrm, struct sib *sib)
 #define ADDR(c) (c->type == CODE_ADDR)
 
 // Instructions with 2 operands
-void do_inst2(struct code *code)
+void do_inst(struct code *code)
 {
     struct modrm modrm = { .used = 1 };
     struct sib sib = { 0 };
@@ -275,6 +278,38 @@ void do_inst2(struct code *code)
                 modrm.rm = code->op1->reg;
 
             break;
+
+        case INST_PUSH:
+            if (IMM(code->op1))
+            {
+                opcode = 0x68 | ((code->size == 8) << 1);
+                modrm.used = 0;
+            }
+            else if (REG(code->op1))
+            {
+                if (code->op1->size == 32) error("Invalid size for PUSH instruction.\n");
+                opcode = 0x50 + code->op1->reg;
+                modrm.used = 0;
+            }
+            else
+            {
+                opcode = 0xff;
+                modrm.reg = 6;
+            }
+
+            break;
+
+        case INST_POP:
+            if (code->size == 32) error("Invalid size for POP instruction.\n");
+            if (REG(code->op1))
+            {
+                opcode = 0x58 + code->op1->reg;
+                modrm.used = 0;
+            }
+            else
+                opcode = 0x8f;
+        
+        break;
     }
 
     if (code->size == 16)
@@ -295,13 +330,10 @@ void do_inst2(struct code *code)
     if (addr && addr->addr.isdisp)
         emit(addr->addr.disp, modrm.mod == 1 ? 8 : addr->size);
 
-    if (IMM(code->op2))
+    if (code->op2 && IMM(code->op2))
         emit(code->op2->imm, code->op2->size);
-}
-
-void do_inst(struct code *code)
-{
-    if (code->op1 && code->op2) do_inst2(code);
+    else if (code->op1 && IMM(code->op1))
+        emit(code->op1->imm, code->op1->size);
 }
 
 void parse_addr(struct code *code)
@@ -389,12 +421,17 @@ struct code *parse()
             if ((code->size = size_prefix())) s_t++;
 
             code->op1 = parse();
-            expect(T_COMMA);
-            code->op2 = parse();
+            
+            if (s_t->type == T_COMMA)
+            {
+                expect(T_COMMA);
+                code->op2 = parse();
+            }
+            
             if (!code->size)
             {
-                if (REG(code->op1)) code->size = code->op1->size;
-                else if (REG(code->op2)) code->size = code->op2->size;
+                if (code->op1 && REG(code->op1)) code->size = code->op1->size;
+                else if (code->op2 && REG(code->op2)) code->size = code->op2->size;
                 else error("Could not deduce instruction size.\n");
             }
             break;

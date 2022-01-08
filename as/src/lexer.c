@@ -22,6 +22,8 @@ const char *insts[] =
     [INST_XOR] = "xor",
     [INST_CMP] = "cmp",
     [INST_MOV] = "mov",
+    [INST_PUSH] = "push",
+    [INST_POP] = "pop",
 };
 
 const char *regstrs[] =

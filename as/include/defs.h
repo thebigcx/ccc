@@ -45,14 +45,20 @@ enum REG
     LREG_RDI,
 };
 
-// Simple instructions (encode easily)
-#define INST_ADD 0
-#define INST_OR  1
-#define INST_ADC 2
-#define INST_SBB 3
-#define INST_AND 4
-#define INST_SUB 5
-#define INST_XOR 6
-#define INST_CMP 7
-
-#define INST_MOV 8
+enum INST
+{
+    // Simple instructions, must be in this order to encode
+    INST_ADD = 0,
+    INST_OR,
+    INST_ADC,
+    INST_SBB,
+    INST_AND,
+    INST_SUB,
+    INST_XOR,
+    INST_CMP,
+    
+    // Rest, any order (doesn't matter)
+    INST_MOV,
+    INST_PUSH,
+    INST_POP
+};
