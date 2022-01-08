@@ -24,6 +24,8 @@ const char *insts[] =
     [INST_MOV] = "mov",
     [INST_PUSH] = "push",
     [INST_POP] = "pop",
+    [INST_RET] = "ret",
+    [INST_HLT] = "hlt",
 };
 
 const char *regstrs[] =

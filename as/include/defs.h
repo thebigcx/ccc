@@ -60,5 +60,7 @@ enum INST
     // Rest, any order (doesn't matter)
     INST_MOV,
     INST_PUSH,
-    INST_POP
+    INST_POP,
+    INST_RET,
+    INST_HLT
 };

@@ -309,7 +309,27 @@ void do_inst(struct code *code)
             else
                 opcode = 0x8f;
         
-        break;
+            break; 
+
+        case INST_RET:
+            opcode = 0xc3;
+            modrm.used = 0;
+            break;
+    
+        case INST_HLT:
+            opcode = 0xf4;
+            modrm.used = 0;
+            break;
+
+        case INST_CLI:
+            opcode = 0xfa;
+            modrm.used = 0;
+            break;
+    
+        case INST_STI:
+            opcode = 0xfb;
+            modrm.used = 0;
+            break;
     }
 
     if (code->size == 16)
@@ -420,7 +440,8 @@ struct code *parse()
             s_t++;
             if ((code->size = size_prefix())) s_t++;
 
-            code->op1 = parse();
+            if (s_t->type != T_INST && s_t->type != T_EOF)
+                code->op1 = parse();
             
             if (s_t->type == T_COMMA)
             {
@@ -428,7 +449,7 @@ struct code *parse()
                 code->op2 = parse();
             }
             
-            if (!code->size)
+            if (!code->size && code->op1)
             {
                 if (code->op1 && REG(code->op1)) code->size = code->op1->size;
                 else if (code->op2 && REG(code->op2)) code->size = code->op2->size;
