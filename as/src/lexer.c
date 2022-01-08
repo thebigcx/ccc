@@ -20,7 +20,8 @@ const char *insts[] =
     [INST_AND] = "and",
     [INST_SUB] = "sub",
     [INST_XOR] = "xor",
-    [INST_CMP] = "cmp"
+    [INST_CMP] = "cmp",
+    [INST_MOV] = "mov",
 };
 
 const char *regstrs[] =

@@ -148,7 +148,7 @@ struct code *addrop(struct code *code)
     return NULL;
 }
 
-uint8_t opcode(struct code *code)
+uint8_t opcode_arith2(struct code *code)
 {
     uint8_t opcode = code->inst << 3;
 
@@ -181,84 +181,51 @@ void emit_rex(struct code *code, struct modrm *modrm, struct sib *sib)
         emitb(rex);
 }
 
-// Instructions with 2 operands
-void do_inst2(struct code *code)
+void encode_addr(struct code *addr, struct modrm *modrm, struct sib *sib)
 {
-    switch (code->inst)
+    if (addr->addr.isdisp)
     {
-        
+        if (addr->addr.base != -1)
+            modrm->mod = immsize(addr->addr.disp) == 8 ? 1 : 2;
+        else
+            sib->base = 0b101;
+    }
+
+    if (addr->addr.index == -1 && addr->addr.base != -1 && addr->addr.base != REG_SP)
+        modrm->rm = addr->addr.base;
+    else
+    {
+        modrm->rm = 0b100;
+
+        uint8_t s = addr->addr.scale;
+        sib->scale = s == 8 ? 3 
+                  : s == 4 ? 2
+                  : s == 2 ? 1
+                  : 0; // TODO: error if invalid scale
+
+        sib->index = addr->addr.index == -1 ? 0b100 : addr->addr.index;
+        sib->base = addr->addr.base == -1 ? 0b101 : addr->addr.base;
+        sib->used = 1;
     }
 }
 
-// For instructions with opcodes < 0x40,
-// follow a simple pattern
-void do_instarithop2(struct code *code)
-{
-    if (addrop(code) && addrop(code)->size == 32)
-        emitb(0x67);
+#define REG(c) (c->type == CODE_REG)
+#define IMM(c) (c->type == CODE_IMM)
+#define ADDR(c) (c->type == CODE_ADDR)
 
-    if (code->size == 16)
-        emitb(0x66);
-    
-    struct modrm modrm = { 0 };
+// Instructions with 2 operands
+void do_inst2(struct code *code)
+{
+    struct modrm modrm = { .used = 1 };
     struct sib sib = { 0 };
 
     struct code *addr = addrop(code);
     
-    if (addr)
-    {
-        if (addr->addr.isdisp)
-        {
-            if (addr->addr.base != -1)
-                modrm.mod = immsize(addr->addr.disp) == 8 ? 1 : 2;
-            else
-                sib.base = 0b101;
-        }
-        // else MOD=00
-
-        if (addr->addr.index == -1 && addr->addr.base != -1 && addr->addr.base != REG_SP)
-            modrm.rm = addr->addr.base;
-        else
-        {
-            modrm.rm = 0b100;
-
-            uint8_t s = addr->addr.scale;
-            sib.scale = s == 8 ? 3 
-                      : s == 4 ? 2
-                      : s == 2 ? 1
-                      : 0; // TODO: error if invalid scale
-
-            sib.index = addr->addr.index == -1 ? 0b100 : addr->addr.index;
-            sib.base = addr->addr.base == -1 ? 0b101 : addr->addr.base;
-            sib.used = 1;
-        }
-    }
+    if (addr) encode_addr(addr, &modrm, &sib);
     else modrm.mod = 3;
 
-    if (code->op2->type == CODE_IMM)
-        modrm.reg = code->inst;
-    else if (code->op2->type == CODE_REG)
-        modrm.reg = code->op2->reg;
-    
-    if (code->op1->type == CODE_REG)
-        modrm.rm = code->op1->reg;
+    uint8_t opcode = 0;
 
-    emit_rex(code, &modrm, &sib);
-    emitb(opcode(code));
-    emitb(modrm.mod << 6 | modrm.reg << 3 | modrm.rm);
-
-    if (sib.used)
-        emitb(sib.scale << 6 | sib.index << 3 | sib.base);
-
-    if (addr && addr->addr.isdisp)
-        emit(addr->addr.disp, modrm.mod == 1 ? 8 : addr->size);
-
-    if (code->op2->type == CODE_IMM)
-        emit(code->op2->imm, immsize(code->op2->imm));
-}
-
-void do_inst(struct code *code)
-{
     switch (code->inst)
     {
         case INST_ADD:
@@ -268,8 +235,70 @@ void do_inst(struct code *code)
         case INST_AND:
         case INST_SUB:
         case INST_XOR:
-        case INST_CMP: do_instarithop2(code); break;
+        case INST_CMP:
+            opcode = opcode_arith2(code);
+
+            if (IMM(code->op2))
+                modrm.reg = code->inst;
+            else if (REG(code->op2))
+                modrm.reg = code->op2->reg;
+            else if (REG(code->op1))
+                modrm.reg = code->op1->reg;
+            
+            if (REG(code->op1) && REG(code->op2))
+                modrm.rm = code->op1->reg;
+
+            break;
+
+        case INST_MOV:
+            if (IMM(code->op2))
+            {
+                modrm.used = !!addr;
+                code->op2->size = code->size;
+                if (REG(code->op1))
+                    opcode = (code->size == 8 ? 0xb0 : 0xb8) + code->op1->reg;
+                else
+                    opcode = 0xc6 | (code->size != 8);
+            }
+            else
+                opcode = 0x88 | (ADDR(code->op2) << 1) | (code->size != 8);
+
+            if (REG(code->op2))
+                modrm.reg = code->op2->reg;
+            else if (REG(code->op1))
+                modrm.reg = code->op1->reg;
+
+            if (REG(code->op1) && REG(code->op2))
+                modrm.rm = code->op1->reg;
+
+            break;
     }
+
+    if (code->size == 16)
+        emitb(0x66);
+ 
+    if (addr && addr->size == 32)
+        emitb(0x67);
+
+    emit_rex(code, &modrm, &sib);
+    emitb(opcode);
+
+    if (modrm.used)
+        emitb(modrm.mod << 6 | modrm.reg << 3 | modrm.rm);
+
+    if (sib.used)
+        emitb(sib.scale << 6 | sib.index << 3 | sib.base);
+
+    if (addr && addr->addr.isdisp)
+        emit(addr->addr.disp, modrm.mod == 1 ? 8 : addr->size);
+
+    if (IMM(code->op2))
+        emit(code->op2->imm, code->op2->size);
+}
+
+void do_inst(struct code *code)
+{
+    if (code->op1 && code->op2) do_inst2(code);
 }
 
 void parse_addr(struct code *code)

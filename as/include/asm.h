@@ -30,6 +30,7 @@
 struct modrm
 {
     uint8_t mod, reg, rm;
+    int used;
 };
 
 struct sib

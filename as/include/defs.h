@@ -54,3 +54,5 @@ enum REG
 #define INST_SUB 5
 #define INST_XOR 6
 #define INST_CMP 7
+
+#define INST_MOV 8
