@@ -26,6 +26,7 @@ const char *insts[] =
     [INST_POP] = "pop",
     [INST_RET] = "ret",
     [INST_HLT] = "hlt",
+    [INST_JMP] = "jmp",
 };
 
 const char *regstrs[] =

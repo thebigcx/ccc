@@ -330,6 +330,16 @@ void do_inst(struct code *code)
             opcode = 0xfb;
             modrm.used = 0;
             break;
+
+/*        case INST_JMP:
+            if (IMM(code->op1))
+            {
+                opcode = 0xe9 | ((code->op1->size == 8) << 1);
+                modrm.used = 0;
+                code->op1->imm -= ftell(s_out);
+            }
+
+            break;*/
     }
 
     if (code->size == 16)
@@ -451,7 +461,8 @@ struct code *parse()
             
             if (!code->size && code->op1)
             {
-                if (code->op1 && REG(code->op1)) code->size = code->op1->size;
+                if (!code->op2 && IMM(code->op1)) code->size = immsize(code->op1->imm);
+                else if (code->op1 && REG(code->op1)) code->size = code->op1->size;
                 else if (code->op2 && REG(code->op2)) code->size = code->op2->size;
                 else error("Could not deduce instruction size.\n");
             }

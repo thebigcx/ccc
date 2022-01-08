@@ -62,5 +62,10 @@ enum INST
     INST_PUSH,
     INST_POP,
     INST_RET,
-    INST_HLT
+    INST_HLT,
+    INST_CLI,
+    INST_STI,
+
+    // Jumps
+    INST_JMP
 };
