@@ -258,7 +258,10 @@ void do_inst2(struct code *code)
                 if (REG(code->op1))
                     opcode = (code->size == 8 ? 0xb0 : 0xb8) + code->op1->reg;
                 else
+                {
+                    if (code->op2->size == 64) code->op2->size = 32;
                     opcode = 0xc6 | (code->size != 8);
+                }
             }
             else
                 opcode = 0x88 | (ADDR(code->op2) << 1) | (code->size != 8);
@@ -388,7 +391,12 @@ struct code *parse()
             code->op1 = parse();
             expect(T_COMMA);
             code->op2 = parse();
-            if (!code->size) code->size = code->op2->size; // TODO: don't do this
+            if (!code->size)
+            {
+                if (REG(code->op1)) code->size = code->op1->size;
+                else if (REG(code->op2)) code->size = code->op2->size;
+                else error("Could not deduce instruction size.\n");
+            }
             break;
 
         case T_REG:
