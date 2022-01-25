@@ -1,18 +1,18 @@
-#include <parser.h>
-#include <lexer.h>
-#include <asm.h>
-#include <opt.h>
-#include <ast.h>
-
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
 
+#include "parser.h"
+#include "lexer.h"
+#include "asm.h"
+#include "opt.h"
+#include "ast.h"
+#include "decl.h"
+
 struct parser
 {
-    struct token *toks;
     size_t i;
     struct symtable *currscope;
     struct ast      *currfunc;
@@ -26,23 +26,23 @@ static unsigned int s_typedefcnt = 0;
 
 static struct token *next()
 {
-    return &s_parser.toks[++s_parser.i];
+    return &g_toks[++s_parser.i];
 }
 
 static struct token *back()
 {
-    return &s_parser.toks[--s_parser.i];
+    return &g_toks[--s_parser.i];
 }
 
 static struct token *curr()
 {
-    return &s_parser.toks[s_parser.i];
+    return &g_toks[s_parser.i];
 }
 
 // Acts like post increment '++'
 static struct token *postnext()
 {
-    return &s_parser.toks[s_parser.i++];
+    return &g_toks[s_parser.i++];
 }
 
 static void error(const char *msg, ...)
@@ -855,10 +855,8 @@ static struct ast *vardecl()
         if (autov)
             t = init->vtype;
         else
-        {
-            if (!type_compatible(ast->binop.rhs->vtype, t))
+            if (!type_compatible(init->vtype, t))
                 error("Incompatible types in variable initialization\n");
-        }
 
         ast = mkbinop(OP_ASSIGN, mkast(A_IDENT), init, t);
         ast->binop.lhs->ident.name = strdup(name);
@@ -1143,17 +1141,14 @@ static struct ast *block(struct ast *block, int type)
     return block;
 }
 
-int parse(struct token *toks, struct ast *ast)
+int parse()
 {
-    struct ast *tree = mkast(A_BLOCK);
+    g_ast = mkast(A_BLOCK);
     
-    s_parser.toks       = toks;
     s_parser.i          = 0;
     s_parser.currscope  = NULL;
-    s_parser.globlscope = tree;
+    s_parser.globlscope = g_ast;
 
-    block(tree, SYMTAB_GLOB);
-    memcpy(ast, tree, sizeof(struct ast));
-
+    block(g_ast, SYMTAB_GLOB);
     return 0;
 }

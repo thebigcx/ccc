@@ -1,7 +1,7 @@
 #pragma once
 
-#include <type.h>
-#include <sym.h>
+#include "type.h"
+#include "sym.h"
 
 enum OPERATOR
 {

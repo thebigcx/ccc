@@ -1,5 +1,5 @@
-#include <opt.h>
-#include <ast.h>
+#include "opt.h"
+#include "ast.h"
 
 struct ast *fold(struct ast *ast)
 {

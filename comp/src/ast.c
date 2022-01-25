@@ -1,4 +1,5 @@
-#include <ast.h>
+#include "ast.h"
+
 #include <stdlib.h>
 
 struct ast *mkast(int type)

@@ -1,16 +1,17 @@
-#include <lexer.h>
+#include "lexer.h"
+#include "util.h"
+#include "decl.h"
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#include <util.h>
 #include <stdio.h>
 
 struct lexer
 {
     int currline, currcol;
     const char *str;
-    struct token **toks;
     size_t tokcnt;
     const char *currfile;
 };
@@ -73,8 +74,8 @@ static void push(struct token t)
     t.line = s_lexer.currline;
     t.col  = s_lexer.currcol;
     t.file = s_lexer.currfile;
-    *s_lexer.toks = realloc(*s_lexer.toks, (s_lexer.tokcnt + 1) * sizeof(struct token));
-    (*s_lexer.toks)[s_lexer.tokcnt++] = t;
+    g_toks = realloc(g_toks, (s_lexer.tokcnt + 1) * sizeof(struct token));
+    g_toks[s_lexer.tokcnt++] = t;
 }
 
 // Push token without value e.g. +, -, {
@@ -133,12 +134,13 @@ static void push_strlit()
     push((struct token) { .type = T_STRLIT, .v.sval = strdup(buf) });
 }
 
-int tokenize(const char *str, struct token **toks)
+int tokenize(const char *str)
 {
+    g_toks = NULL;
+
     s_lexer.currline = 1;
     s_lexer.currcol  = 0;
     s_lexer.str      = str;
-    s_lexer.toks     = toks;
     s_lexer.tokcnt   = 0;
 
     while (*s_lexer.str)

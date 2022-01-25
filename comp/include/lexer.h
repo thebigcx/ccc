@@ -63,4 +63,4 @@ struct token
     const char *file;
 };
 
-int tokenize(const char *str, struct token **toks);
+int tokenize(const char *str);

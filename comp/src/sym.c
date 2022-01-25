@@ -1,5 +1,5 @@
-#include <sym.h>
-#include <asm.h>
+#include "sym.h"
+#include "asm.h"
 
 #include <stdlib.h>
 #include <string.h>

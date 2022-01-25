@@ -1,14 +1,17 @@
+#include "preproc.h"
+#include "lexer.h"
+#include "parser.h"
+#include "ast.h"
+#include "gen.h"
+#include "util.h"
+
+#define extern_
+#include "decl.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
-
-#include <preproc.h>
-#include <lexer.h>
-#include <parser.h>
-#include <ast.h>
-#include <gen.h>
-#include <util.h>
 
 const char *infile = NULL, *outfile = NULL;
 
@@ -55,32 +58,29 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    FILE *in = fopen(infile, "r");
-    if (!in)
+    g_inf = fopen(infile, "r");
+    if (!g_inf)
     {
         perror("Error");
         return -1;
     }
 
-    char *code = readfile(in);    
+    char *code = readfile(g_inf);    
     char *preproc = preprocess(code, infile);
 
-    printf("%s\n", preproc);
-    struct token *toks = NULL;
-    tokenize(preproc, &toks);
+    tokenize(preproc);
 
-    struct ast ast;
-    parse(toks, &ast);
+    parse();
 
-    FILE *out = fopen(outfile, "w+");
-    if (!out)
+    g_outf = fopen(outfile, "w+");
+    if (!g_outf)
     {
         perror("Error");
         return -1;
     }
 
-    gen_ast(&ast, out);
-    fclose(out);
+    gen_ast();
+    fclose(g_outf);
 
     system("gcc -g -static out.s");
 
