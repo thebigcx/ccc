@@ -1,11 +1,10 @@
-SRC = $(wildcard src/*.c)
+SRC=$(wildcard *.c)
+OBJ=$(patsubst %.c, %.o, $(SRC))
 
-OBJ = $(patsubst %.c, %.o, $(SRC))
+CFLAGS=-Wall -Wextra -Werror=implicit-function-declaration -Wno-unused-function -g -Iinclude
+LDFLAGS=
 
-CFLAGS = -Wall -Wextra -Werror=implicit-function-declaration -Wno-unused-function -g -Iinclude
-LDFLAGS =
-
-TARG = dist/as
+TARG=dist/as
 
 .PHONY: all clean
 
