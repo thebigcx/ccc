@@ -235,7 +235,7 @@ static int regalloc()
     }
 
     int r = (spillreg++ % REGCNT);
-    fprintf(g_outf, "\tpushq\t%s\n", regs64[r]);
+    fprintf(g_outf, "\tpush\t%s\n", regs64[r]);
     return r;
 }
 
@@ -244,7 +244,7 @@ static void regfree(int r)
     if (spillreg > 0)
     {
         r = (--spillreg & REGCNT);
-        fprintf(g_outf, "\tpopq\t%s\n", regs64[r]);
+        fprintf(g_outf, "\tpop\t%s\n", regs64[r]);
     }
     else reglist[r] = 0;
 }
@@ -269,30 +269,15 @@ static const char *jmpinsts[] =
     [OP_LTE]    = "jge"
 };
 
-static char suffixes[] =
-{
-    [1] = 'b',
-    [2] = 'w',
-    [4] = 'l',
-    [8] = 'q'
-};
-
 static int asm_addrof(struct sym *sym, int r)
 {
     if (sym->attr & SYM_GLOBAL)
-        fprintf(g_outf, "\tleaq\t%s(%%rip), %s\n", sym->name, regs64[r]);
+        //fprintf(g_outf, "\tleaq\t%s(%%rip), %s\n", sym->name, regs64[r]);
+        fprintf(g_outf, "\tmov\t$%s, %s\n", sym->name, regs64[r]);
     else
-        fprintf(g_outf, "\tleaq\t-%lu(%%rbp), %s\n", sym->stackoff, regs64[r]);
+        fprintf(g_outf, "\tlea\t-%lu(%%rbp), %s\n", sym->stackoff, regs64[r]);
     return r;
 }
-
-static const char *movs[9] =
-{
-    [1] = "movb",
-    [2] = "movw",
-    [4] = "movl",
-    [8] = "movq"
-};
 
 static const char *movzs[9] =
 {
@@ -310,7 +295,55 @@ static const char **regs[9] =
     [8] = regs64
 };
 
-static int gen_load(struct sym *sym, int r)
+void asm_label(int lbl)
+{
+    fprintf(g_outf, "L%d:\n", lbl);
+}
+
+void asm_jump(int lbl)
+{
+    fprintf(g_outf, "\tjmp\tL%d\n", lbl);
+}
+
+void asm_jumpn(const char *name)
+{
+    fprintf(g_outf, "\tjmp\t%s\n", name);
+}
+
+void asm_section(const char *name)
+{
+    fprintf(g_outf, "\t.section %s\n", name);
+}
+
+void asm_string(const char *str)
+{
+    fprintf(g_outf, "\t.string \"%s\"\n", str);
+}
+
+void asm_symbol(struct sym *sym)
+{
+    if (sym->attr & SYM_PUBLIC)
+        fprintf(g_outf, "\t.global %s\n", sym->name);
+    fprintf(g_outf, "%s:\n", sym->name); 
+}
+
+void asm_dataprim(struct type t)
+{
+    if (t.ptr)
+        fprintf(g_outf, "\t.long 0\n");
+    else
+    {
+        switch (asm_sizeof(t))
+        {
+            case 1: fprintf(g_outf, "\t.byte  0\n"); break;
+            case 2: fprintf(g_outf, "\t.short 0\n"); break;
+            case 4: fprintf(g_outf, "\t.int   0\n"); break;
+            case 8: fprintf(g_outf, "\t.long  0\n"); break;
+        }
+    }
+}
+
+static int asm_load(struct sym *sym, int r)
 {
     if (sym->type.arrlen)
         return asm_addrof(sym, r);
@@ -324,117 +357,117 @@ static int gen_load(struct sym *sym, int r)
     }
 }
 
-static int gen_store(struct sym *sym, int r)
+static int asm_store(struct sym *sym, int r)
 {
     if (sym->attr & SYM_LOCAL)
-        fprintf(g_outf, "\t%s\t%s, -%lu(%%rbp)\n", movs[asm_sizeof(sym->type)], regs[asm_sizeof(sym->type)][r], sym->stackoff);
+        fprintf(g_outf, "\tmov\t%s, -%lu(%%rbp)\n", regs[asm_sizeof(sym->type)][r], sym->stackoff);
     else
-        fprintf(g_outf, "\t%s\t%s, %s(%%rip)\n", movs[asm_sizeof(sym->type)], regs[asm_sizeof(sym->type)][r], sym->name);
+        fprintf(g_outf, "\tmov\t%s, %s(%%rip)\n", regs[asm_sizeof(sym->type)][r], sym->name);
     return r;
 }
 
-static int gen_storederef(struct ast *ast, int r1, int r2)
+static int asm_storederef(struct ast *ast, int r1, int r2)
 {
-    fprintf(g_outf, "\t%s\t%s, (%s)\n", movs[asm_sizeof(ast->vtype)], regs[asm_sizeof(ast->vtype)][r2], regs64[r1]);
+    fprintf(g_outf, "\tmov\t%s, (%s)\n", regs[asm_sizeof(ast->vtype)][r2], regs64[r1]);
     regfree(r1);
     return r2;
 }
 
-static int gen_loadderef(struct ast *ast, int r)
+static int asm_loadderef(struct ast *ast, int r)
 {
     if (ast->lvalue)
         return r;
     else
     {
         int r2 = regalloc();
-        fprintf(g_outf, "\t%s\t(%s), %s\n", movs[asm_sizeof(ast->vtype)], regs64[r], regs[asm_sizeof(ast->vtype)][r2]);
+        fprintf(g_outf, "\tmov\t(%s), %s\n", regs64[r], regs[asm_sizeof(ast->vtype)][r2]);
         regfree(r);
         return r2;
     }
 }
 
-static int gen_add(int r1, int r2)
+static int asm_add(int r1, int r2)
 {
-    fprintf(g_outf, "\taddq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(g_outf, "\tadd\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_sub(int r1, int r2)
+static int asm_sub(int r1, int r2)
 {
-    fprintf(g_outf, "\tsubq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(g_outf, "\tsub\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_mul(int r1, int r2)
+static int asm_mul(int r1, int r2)
 {
-    fprintf(g_outf, "\timulq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(g_outf, "\timul\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_div(int r1, int r2)
-{
-    fprintf(g_outf, "\tcqo\n");
-    fprintf(g_outf, "\tmovq\t%s, %%rax\n", regs64[r1]);
-    fprintf(g_outf, "\tidiv\t%s\n", regs64[r2]);
-    fprintf(g_outf, "\tmovq\t%%rax, %s\n", regs64[r1]);
-    regfree(r2);
-    return r1;
-}
-
-static int gen_mod(int r1, int r2)
+static int asm_div(int r1, int r2)
 {
     fprintf(g_outf, "\tcqo\n");
-    fprintf(g_outf, "\tmovq\t%s, %%rax\n", regs64[r1]);
+    fprintf(g_outf, "\tmov\t%s, %%rax\n", regs64[r1]);
     fprintf(g_outf, "\tidiv\t%s\n", regs64[r2]);
-    fprintf(g_outf, "\tmovq\t%%rdx, %s\n", regs64[r1]);
+    fprintf(g_outf, "\tmov\t%%rax, %s\n", regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_shl(int r1, int r2)
+static int asm_mod(int r1, int r2)
 {
-    fprintf(g_outf, "\tmovb\t%s, %%cl\n", regs8[r2]);
-    fprintf(g_outf, "\tshlq\t%%cl, %s\n", regs64[r1]);
+    fprintf(g_outf, "\tcqo\n");
+    fprintf(g_outf, "\tmov\t%s, %%rax\n", regs64[r1]);
+    fprintf(g_outf, "\tidiv\t%s\n", regs64[r2]);
+    fprintf(g_outf, "\tmov\t%%rdx, %s\n", regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_shr(int r1, int r2)
+static int asm_shl(int r1, int r2)
 {
-    fprintf(g_outf, "\tmovb\t%s, %%cl\n", regs8[r2]);
-    fprintf(g_outf, "\tshrq\t%%cl, %s\n", regs64[r1]);
+    fprintf(g_outf, "\tmov\t%s, %%cl\n", regs8[r2]);
+    fprintf(g_outf, "\tshl\t%%cl, %s\n", regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_bitand(int r1, int r2)
+static int asm_shr(int r1, int r2)
 {
-    fprintf(g_outf, "\tandq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(g_outf, "\tmov\t%s, %%cl\n", regs8[r2]);
+    fprintf(g_outf, "\tshr\t%%cl, %s\n", regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_bitor(int r1, int r2)
+static int asm_bitand(int r1, int r2)
 {
-    fprintf(g_outf, "\torq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(g_outf, "\tand\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_bitxor(int r1, int r2)
+static int asm_bitor(int r1, int r2)
 {
-    fprintf(g_outf, "\txorq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(g_outf, "\tor\t%s, %s\n", regs64[r2], regs64[r1]);
     regfree(r2);
     return r1;
 }
 
-static int gen_cmpandset(int r1, int r2, int op)
+static int asm_bitxor(int r1, int r2)
+{
+    fprintf(g_outf, "\txor\t%s, %s\n", regs64[r2], regs64[r1]);
+    regfree(r2);
+    return r1;
+}
+
+static int asm_cmpandset(int r1, int r2, int op)
 {
     int r = regalloc();
-    fprintf(g_outf, "\tcmpq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(g_outf, "\tcmp\t%s, %s\n", regs64[r2], regs64[r1]);
     fprintf(g_outf, "\t%s\t%%al\n", setinsts[op]);
     fprintf(g_outf, "\tmovzx\t%%al, %s\n", regs64[r]);
     
@@ -444,13 +477,28 @@ static int gen_cmpandset(int r1, int r2, int op)
 }
 
 // Compare two registers and jmp past code block
-static int gen_cmpandjmp(int r1, int r2, int op, int lbl)
+static int asm_cmpandjmp(int r1, int r2, int op, int lbl)
 {
-    fprintf(g_outf, "\tcmpq\t%s, %s\n", regs64[r2], regs64[r1]);
+    fprintf(g_outf, "\tcmp\t%s, %s\n", regs64[r2], regs64[r1]);
     fprintf(g_outf, "\t%s\tL%d\n", jmpinsts[op], lbl);
     regfree(r1);
     regfree(r2);
     return NOREG;
+}
+
+void asm_funcpre(size_t st)
+{
+    if (!st) return;
+
+    fprintf(g_outf, "\tpush\t%%rbp\n");
+    fprintf(g_outf, "\tmov\t%%rsp, %%rbp\n");
+    fprintf(g_outf, "\tsub\t$%lu, %%rsp\n", st);
+}
+
+void asm_funcpost(size_t st)
+{
+    if (st) fprintf(g_outf, "\tleave\n");
+    fprintf(g_outf, "\tret\n");
 }
 
 // Assignment binary expressions e.g. x = 10, x += 2, *x /= 2, etc
@@ -458,24 +506,24 @@ static int gen_assign(int r1, int r2, struct ast *ast)
 {
     switch (ast->binop.op)
     {
-        case OP_PLUSEQ:   r2 = gen_add(r1, r2); break;
-        case OP_MULEQ:    r2 = gen_mul(r1, r2); break;
-        case OP_DIVEQ:    r2 = gen_div(r1, r2); break;
-        case OP_MINUSEQ:  r2 = gen_sub(r1, r2); break;
-        case OP_BITANDEQ: r2 = gen_bitand(r1, r2); break;
-        case OP_BITOREQ:  r2 = gen_bitor(r1, r2); break;
-        case OP_BITXOREQ: r2 = gen_bitxor(r1, r2); break;
-        case OP_SHLEQ:    r2 = gen_shl(r1, r2); break;
-        case OP_SHREQ:    r2 = gen_shr(r1, r2); break;
-        case OP_MODEQ:    r2 = gen_mod(r1, r2); break;
+        case OP_PLUSEQ:   r2 = asm_add(r1, r2); break;
+        case OP_MULEQ:    r2 = asm_mul(r1, r2); break;
+        case OP_DIVEQ:    r2 = asm_div(r1, r2); break;
+        case OP_MINUSEQ:  r2 = asm_sub(r1, r2); break;
+        case OP_BITANDEQ: r2 = asm_bitand(r1, r2); break;
+        case OP_BITOREQ:  r2 = asm_bitor(r1, r2); break;
+        case OP_BITXOREQ: r2 = asm_bitxor(r1, r2); break;
+        case OP_SHLEQ:    r2 = asm_shl(r1, r2); break;
+        case OP_SHREQ:    r2 = asm_shr(r1, r2); break;
+        case OP_MODEQ:    r2 = asm_mod(r1, r2); break;
     }
     
     if (ast->binop.lhs->type == A_UNARY && ast->binop.lhs->unary.op == OP_DEREF)
-        return gen_storederef(ast, r1, r2);
+        return asm_storederef(ast, r1, r2);
     else
     {
         struct sym *sym = sym_lookup(s_currscope, ast->binop.lhs->ident.name);
-        return gen_store(sym, r2);
+        return asm_store(sym, r2);
     }
 }
 
@@ -485,12 +533,7 @@ static int gen_lazyeval(struct ast *ast)
 
     int r1 = gen_code(ast->binop.lhs);
 
-    fprintf(g_outf, "\ttest\t%s, %s\n", regs64[r1], regs64[r1]);
-
-    if (ast->binop.op == OP_LAND)
-        fprintf(g_outf, "\tjz\tL%d\n", end);
-    else if (ast->binop.op == OP_LOR)
-        fprintf(g_outf, "\tjnz\tL%d\n", end);
+    asm_testandjmp(r1, end, ast->binop.op == OP_LAND);
 
     if (!CMPEXPR(ast->binop.lhs))
     {
@@ -507,7 +550,7 @@ static int gen_lazyeval(struct ast *ast)
     }
 
     regfree(r1);
-    fprintf(g_outf, "L%d:\n", end);
+    asm_label(end);
     return r2;
 }
 
@@ -515,17 +558,11 @@ static int gen_lazyevaljmp(int lbl, struct ast *ast)
 {
     int r1 = gen_code(ast->binop.lhs);
 
-    fprintf(g_outf, "\ttest\t%s, %s\n", regs64[r1], regs64[r1]);
+    asm_testandjmp(r1, lbl, ast->binop.op == OP_LAND);
     regfree(r1);
-    
-    if (ast->binop.op == OP_LAND)
-        fprintf(g_outf, "\tjz\tL%d\n", lbl);
-    else if (ast->binop.op == OP_LOR)
-        fprintf(g_outf, "\tjnz\tL%d\n", lbl);
 
     int r2 = gen_code(ast->binop.rhs);
-    fprintf(g_outf, "\ttest\t%s, %s\n", regs64[r2], regs64[r2]);
-    fprintf(g_outf, "\tjnz\tL%d\n", lbl);
+    asm_testandjmp(r2, lbl, 0);
     regfree(r2);
     return NOREG;
 }
@@ -540,19 +577,19 @@ static int gen_binop(struct ast *ast)
 
     switch (ast->binop.op)
     {
-        case OP_PLUS:   return gen_add(r1, r2); 
-        case OP_MUL:    return gen_mul(r1, r2);
-        case OP_DIV:    return gen_div(r1, r2);      
-        case OP_MINUS:  return gen_sub(r1, r2);
-        case OP_SHL:    return gen_shl(r1, r2);
-        case OP_SHR:    return gen_shr(r1, r2);
-        case OP_MOD:    return gen_mod(r1, r2);
+        case OP_PLUS:   return asm_add(r1, r2); 
+        case OP_MUL:    return asm_mul(r1, r2);
+        case OP_DIV:    return asm_div(r1, r2);      
+        case OP_MINUS:  return asm_sub(r1, r2);
+        case OP_SHL:    return asm_shl(r1, r2);
+        case OP_SHR:    return asm_shr(r1, r2);
+        case OP_MOD:    return asm_mod(r1, r2);
         case OP_EQUAL:
         case OP_NEQUAL:
         case OP_GT:
         case OP_LT:
         case OP_GTE:
-        case OP_LTE:    return gen_cmpandset(r1, r2, ast->binop.op);
+        case OP_LTE:    return asm_cmpandset(r1, r2, ast->binop.op);
         case OP_ASSIGN:
         case OP_PLUSEQ:
         case OP_MINUSEQ:
@@ -564,15 +601,15 @@ static int gen_binop(struct ast *ast)
         case OP_SHLEQ:
         case OP_SHREQ:
         case OP_MODEQ:  return gen_assign(r1, r2, ast);
-        case OP_BITAND: return gen_bitand(r1, r2);
-        case OP_BITOR:  return gen_bitor(r1, r2);
-        case OP_BITXOR: return gen_bitxor(r1, r2);
+        case OP_BITAND: return asm_bitand(r1, r2);
+        case OP_BITOR:  return asm_bitor(r1, r2);
+        case OP_BITXOR: return asm_bitxor(r1, r2);
     }
 
     return NOREG;
 }
 
-static int gen_lognot(int r)
+int asm_lognot(int r)
 {
     fprintf(g_outf, "\ttest\t%s, %s\n", regs64[r], regs64[r]);
     fprintf(g_outf, "\tsete\t%s\n", regs8[r]);
@@ -580,16 +617,35 @@ static int gen_lognot(int r)
     return r;
 }
 
-static int gen_bitnot(int r)
+int asm_bitnot(int r)
 {
-    fprintf(g_outf, "\tnotq\t%s\n", regs64[r]);
+    fprintf(g_outf, "\tnot\t%s\n", regs64[r]);
     return r;
 }
 
-static int gen_unaryminus(int r)
+int asm_unaryminus(int r)
 {
-    fprintf(g_outf, "\tnegq\t%s\n", regs64[r]);
+    fprintf(g_outf, "\tneg\t%s\n", regs64[r]);
     return r;
+}
+
+void asm_testandjmp(int r, int lbl, int zf)
+{
+    fprintf(g_outf, "\ttest\t%s, %s\n", regs64[r], regs64[r]);
+    fprintf(g_outf, "\t%s\tL%d\n", zf ? "jz" : "jnz", lbl);
+}
+
+int asm_loadint(unsigned long i)
+{
+    int r = regalloc();
+    fprintf(g_outf, "\tmov\t$%ld, %s\n", i, regs64[r]);
+    return r;
+}
+
+void asm_move(int r1, int r2, size_t s1, size_t s2)
+{
+    if (s1 >= s2)
+        fprintf(g_outf, "\tmov\t%s, %s\n", regs[s2][r1], regs[s2][r2]);
 }
 
 static int gen_addrof(struct ast *ast)
@@ -607,20 +663,13 @@ static int gen_unary(struct ast *ast)
 
     switch (ast->unary.op)
     {
-        case OP_DEREF:  return gen_loadderef(ast, r); break;
-        case OP_LOGNOT: return gen_lognot(r); break;
-        case OP_BITNOT: return gen_bitnot(r); break;
-        case OP_MINUS:  return gen_unaryminus(r); break;
+        case OP_DEREF:  return asm_loadderef(ast, r); break;
+        case OP_LOGNOT: return asm_lognot(r); break;
+        case OP_BITNOT: return asm_bitnot(r); break;
+        case OP_MINUS:  return asm_unaryminus(r); break;
     }
 
     return NOREG;
-}
-
-static int gen_intlit(struct ast *ast)
-{
-    int r = regalloc();
-    fprintf(g_outf, "\tmovq\t$%ld, %s\n", ast->intlit.ival, regs64[r]);
-    return r;
 }
 
 static int gen_ident(struct ast *ast)
@@ -629,7 +678,7 @@ static int gen_ident(struct ast *ast)
 
     int r = regalloc();
     struct sym *sym = sym_lookup(s_currscope, ast->ident.name);
-    return gen_load(sym, r);
+    return asm_load(sym, r);
 }
 
 static int gen_block(struct ast *ast)
@@ -676,32 +725,23 @@ static int gen_funcdef(struct ast *ast)
     ast->funcdef.endlbl = label();
 
     struct sym *sym = sym_lookup(s_currscope, ast->funcdef.name);
-    if (sym->attr & SYM_PUBLIC)
-        fprintf(g_outf, "\t.global %s\n", ast->funcdef.name);
-    
-    fprintf(g_outf, "%s:\n", ast->funcdef.name);
+    asm_symbol(sym_lookup(s_currscope, ast->funcdef.name));
 
-    if (ast->funcdef.block->block.symtab.curr_stackoff)
-    {
-        fprintf(g_outf, "\tpushq\t%%rbp\n");
-        fprintf(g_outf, "\tmovq\t%%rsp, %%rbp\n");
-        fprintf(g_outf, "\tsubq\t$%lu, %%rsp\n", ast->funcdef.block->block.symtab.curr_stackoff);
-    }
+    size_t st = ast->funcdef.block->block.symtab.curr_stackoff;
+
+    asm_funcpre(st);
 
     for (unsigned int i = 0; i < sym->type.func.paramcnt; i++)
     {
         struct sym *sym = sym_lookup(&ast->funcdef.block->block.symtab, ast->funcdef.params[i]);
         size_t size = asm_sizeof(sym->type);
-        fprintf(g_outf, "\t%s\t%s, -%lu(%%rbp)\n", movs[size], paramregs[size][i], sym->stackoff);
+        fprintf(g_outf, "\tmov\t%s, -%lu(%%rbp)\n", paramregs[size][i], sym->stackoff);
     }
 
     gen_block(ast->funcdef.block);
-    fprintf(g_outf, "L%d:\n", ast->funcdef.endlbl);
+    asm_label(ast->funcdef.endlbl);
+    asm_funcpost(st);
 
-    if (ast->funcdef.block->block.symtab.curr_stackoff)
-        fprintf(g_outf, "\tleaveq\n");
-    
-    fprintf(g_outf, "\tretq\n\n");
     return NOREG;
 }
 
@@ -717,7 +757,7 @@ static int gen_call(struct ast *ast)
     {
         int par = gen_code(ast->call.params[i]);
         size_t s = asm_sizeof(ast->call.params[i]->vtype);
-        fprintf(g_outf, "\t%s\t%s, %s\n", movs[s], regs[s][par], paramregs[s][i]);
+        fprintf(g_outf, "\tmov\t%s, %s\n", regs[s][par], paramregs[s][i]);
         regfree(par);
     }
 
@@ -732,49 +772,51 @@ static int gen_call(struct ast *ast)
         regfree(r); // A bit dodgy, makes for better looking code
     }
 
-    for (int i = 0; i < REGCNT; i++)
+    for (int i = 0; i < (int)REGCNT; i++)
     {
         if (reglist[i])
-            fprintf(g_outf, "\tpushq\t%s\n", regs64[i]);
+            fprintf(g_outf, "\tpush\t%s\n", regs64[i]);
     }
 
     if (ast->call.ast->vtype.func.variadic)
-        fprintf(g_outf, "\txorq\t%%rax, %%rax\n");
-    fprintf(g_outf, "\tcallq\t%s\n", fn);
+        fprintf(g_outf, "\txor\t%%rax, %%rax\n");
+    fprintf(g_outf, "\tcall\t%s\n", fn);
 
     for (int i = REGCNT - 1; i >= 0; i--)
     {
         if (reglist[i])
-            fprintf(g_outf, "\tpopq\t%s\n", regs64[i]);
+            fprintf(g_outf, "\tpop\t%s\n", regs64[i]);
     }
 
     if (ast->vtype.name == TYPE_VOID && !ast->vtype.ptr)
         return NOREG;
 
     int r = regalloc();
-    fprintf(g_outf, "\tmovq\t%%rax, %s\n", regs64[r]);
+    fprintf(g_outf, "\tmov\t%%rax, %s\n", regs64[r]);
     return r;
 }
 
-static const char *retrs[] =
+void asm_retval(int r, size_t s)
 {
-    [1] = "%al",
-    [2] = "%ax",
-    [4] = "%eax",
-    [8] = "%rax"
-};
+    switch (s)
+    {
+        case 1: fprintf(g_outf, "\tmovzbl\t%s, %%eax\n", regs8[r]); break;
+        case 2: fprintf(g_outf, "\tmovzwl\t%s, %%eax\n", regs16[r]); break;
+        case 4: fprintf(g_outf, "\tmov\t%s, %%eax\n", regs32[r]); break;
+        case 8: fprintf(g_outf, "\tmov\t%s, %%rax\n", regs64[r]); break;
+    }
+}
 
 static int gen_return(struct ast *ast)
 {
     if (ast->ret.val)
     {
         int r = gen_code(ast->ret.val);
-        size_t s = asm_sizeof(ast->ret.val->vtype);
-        fprintf(g_outf, "\t%s\t%s, %s\n", movs[s], regs[s][r], retrs[s]);
+        asm_retval(r, asm_sizeof(ast->ret.val->vtype));
         regfree(r);
     }
 
-    fprintf(g_outf, "\tjmp\tL%d\n", ast->ret.func->funcdef.endlbl);
+    asm_jump(ast->ret.func->funcdef.endlbl);
     return NOREG;
 }
 
@@ -794,14 +836,13 @@ static int gen_ifelse(struct ast *ast)
         {
             int r1 = gen_code(cond->binop.lhs);
             int r2 = gen_code(cond->binop.rhs);
-            gen_cmpandjmp(r1, r2, cond->binop.op, elselbl != -1 ? elselbl : endlbl);
+            asm_cmpandjmp(r1, r2, cond->binop.op, elselbl != -1 ? elselbl : endlbl);
         }
     }
     else
     {
         int r = gen_code(cond);
-        fprintf(g_outf, "\tcmpq\t$0, %s\n", regs64[r]);
-        fprintf(g_outf, "\tjz\tL%d\n", elselbl != -1 ? elselbl : endlbl);
+        asm_testandjmp(r, elselbl != -1 ? elselbl : endlbl, 1);
         regfree(r);
     }
 
@@ -809,12 +850,12 @@ static int gen_ifelse(struct ast *ast)
     
     if (elselbl != -1)
     {
-        fprintf(g_outf, "\tjmp\tL%d\n", endlbl);
-        fprintf(g_outf, "L%d:\n", elselbl);
+        asm_jump(endlbl);
+        asm_label(elselbl);
         DISCARD(gen_code(ast->ifelse.elseblock));
     }
 
-    fprintf(g_outf, "L%d:\n", endlbl);
+    asm_label(endlbl);
     return NOREG;
 }
 
@@ -822,19 +863,17 @@ static int gen_while(struct ast *ast)
 {
     int looplbl = label(), endlbl = label();
 
-    fprintf(g_outf, "L%d:\n", looplbl);
+    asm_label(looplbl);
     int r = gen_code(ast->ifelse.cond);
-    
-    fprintf(g_outf, "\tcmpq\t$0, %s\n", regs64[r]);
-    fprintf(g_outf, "\tjz\tL%d\n", endlbl);
+   
+    asm_testandjmp(r, endlbl, 1);
 
     regfree(r);
 
     DISCARD(gen_code(ast->whileloop.body));
 
-    fprintf(g_outf, "\tjmp\tL%d\n", looplbl);
-
-    fprintf(g_outf, "L%d:\n", endlbl);
+    asm_jump(looplbl);
+    asm_label(endlbl);
     return NOREG;
 }
 
@@ -847,11 +886,10 @@ static int gen_for(struct ast *ast)
     s_currscope = &ast->forloop.body->block.symtab;
     DISCARD(gen_code(ast->forloop.init));
 
-    fprintf(g_outf, "L%d:\n", looplbl);
+    asm_label(looplbl);
     int r = gen_code(ast->forloop.cond);
-    
-    fprintf(g_outf, "\tcmpq\t$0, %s\n", regs64[r]);
-    fprintf(g_outf, "\tjz\tL%d\n", endlbl);
+
+    asm_testandjmp(r, endlbl, 1);
 
     regfree(r);
 
@@ -861,46 +899,36 @@ static int gen_for(struct ast *ast)
     DISCARD(gen_code(ast->forloop.update));
 
     s_currscope = ast->forloop.body->block.symtab.parent;
-    fprintf(g_outf, "\tjmp\tL%d\n", looplbl);
-    fprintf(g_outf, "L%d:\n", endlbl);
+    
+    asm_jump(looplbl);
+    asm_label(endlbl);
     return NOREG;
 }
 
 static int gen_strlit(struct ast *ast)
 {
     int r = regalloc();
-    fprintf(g_outf, "\tleaq\tL%d(%%rip), %s\n", s_globlscope->block.strs[ast->strlit.idx].lbl, regs64[r]);
+    fprintf(g_outf, "\tmov\t$L%d, %s\n", s_globlscope->block.strs[ast->strlit.idx].lbl, regs64[r]);
+    //fprintf(g_outf, "\tleaq\tL%d(%%rip), %s\n", s_globlscope->block.strs[ast->strlit.idx].lbl, regs64[r]);
     return r;
 }
 
 static int gen_sizeof(struct ast *ast)
 {
     int r = regalloc();
-    fprintf(g_outf, "\tmovq\t$%lu, %s\n", asm_sizeof(ast->sizeofop.t), regs64[r]);
+    fprintf(g_outf, "\tmov\t$%lu, %s\n", asm_sizeof(ast->sizeofop.t), regs64[r]);
     return r;
 }
 
-int gen_label(struct ast *ast)
+void asm_labeln(const char *name)
 {
-    fprintf(g_outf, "%s:\n", ast->label.name);
-    return NOREG;
-}
-
-int gen_goto(struct ast *ast)
-{
-    fprintf(g_outf, "\tjmp\t%s\n", ast->gotolbl.label);
-    return NOREG;
-}
-
-int gen_cast(struct ast *ast)
-{
-    return gen_code(ast->cast.val);
+    fprintf(g_outf, "%s:\n", name);
 }
 
 // Pre-increment or decrement
 int gen_pre(struct ast *ast)
 {
-    const char *inst = ast->type == A_PREINC ? "incq" : "decq";
+    const char *inst = ast->type == A_PREINC ? "inc" : "dec";
 
     int r1 = gen_code(ast->incdec.val);
     if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
@@ -908,19 +936,19 @@ int gen_pre(struct ast *ast)
         int r2 = gen_code(ast->incdec.val->unary.val);
         
         fprintf(g_outf, "\t%s\t%s\n", inst, regs64[r1]);
-        return gen_storederef(ast, r2, r1);
+        return asm_storederef(ast, r2, r1);
     }
     else
     {
         fprintf(g_outf, "\t%s\t%s\n", inst, regs64[r1]);
         struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
-        return gen_store(sym, r1);
+        return asm_store(sym, r1);
     }
 }
 
 int gen_post(struct ast *ast)
 {
-    const char *inst = ast->type == A_POSTINC ? "incq" : "decq";
+    const char *inst = ast->type == A_POSTINC ? "inc" : "dec";
 
     int r1 = gen_code(ast->incdec.val);
     if (ast->incdec.val->type == A_UNARY && ast->incdec.val->unary.op == OP_DEREF)
@@ -928,10 +956,10 @@ int gen_post(struct ast *ast)
         int r2 = gen_code(ast->incdec.val->unary.val);
         int r3 = regalloc();
 
-        fprintf(g_outf, "\tmovq\t%s, %s\n", regs64[r1], regs64[r3]);
+        asm_move(r1, r2, 8, 8);
         fprintf(g_outf, "\t%s\t%s\n", inst, regs64[r3]);
 
-        int r = gen_storederef(ast, r2, r3);
+        int r = asm_storederef(ast, r2, r3);
         regfree(r1);
         regfree(r2);
         return r;
@@ -940,11 +968,11 @@ int gen_post(struct ast *ast)
     {
         int r2 = regalloc();
 
-        fprintf(g_outf, "\tmovq\t%s, %s\n", regs64[r1], regs64[r2]);
+        asm_move(r1, r2, 8, 8);
         fprintf(g_outf, "\t%s\t%s\n", inst, regs64[r2]);
         
         struct sym *sym = sym_lookup(s_currscope, ast->incdec.val->ident.name);
-        regfree(gen_store(sym, r2));
+        regfree(asm_store(sym, r2));
         return r1;
     }
 }
@@ -952,7 +980,7 @@ int gen_post(struct ast *ast)
 int gen_scale(struct ast *ast)
 {
     int r = gen_code(ast->scale.val);
-    fprintf(g_outf, "\timulq\t$%u, %s\n", ast->scale.num, regs64[r]);
+    fprintf(g_outf, "\timul\t$%u, %s\n", ast->scale.num, regs64[r]);
     return r;
 }
 
@@ -962,22 +990,21 @@ int gen_ternary(struct ast *ast)
     int r1 = gen_code(ast->ternary.cond);
     int r2 = regalloc();
 
-    fprintf(g_outf, "\tcmpq\t$0, %s\n", regs64[r1]);
-    fprintf(g_outf, "\tjz\tL%d\n", l1);
+    asm_testandjmp(r1, l1, 1);
     regfree(r1);
 
     int r3 = gen_code(ast->ternary.lhs);
-    fprintf(g_outf, "\tmovq\t%s, %s\n", regs64[r3], regs64[r2]);
+    asm_move(r3, r2, 8, 8);
     regfree(r3);
 
-    fprintf(g_outf, "\tjmp\tL%d\n", l2);
-    fprintf(g_outf, "L%d:\n", l1);
+    asm_jump(l2);
+    asm_label(l1);
     
     r3 = gen_code(ast->ternary.rhs);
-    fprintf(g_outf, "\tmovq\t%s, %s\n", regs64[r3], regs64[r2]);
+    asm_move(r3, r2, 8, 8);
     regfree(r3);
 
-    fprintf(g_outf, "L%d:\n", l2);
+    asm_label(l2);
     return r2;
 }
 
@@ -988,12 +1015,12 @@ int gen_code(struct ast *ast)
     {
         case A_BINOP:   return gen_binop(ast);
         case A_UNARY:   return gen_unary(ast);
-        case A_INTLIT:  return gen_intlit(ast);
+        case A_INTLIT:  return asm_loadint(ast->intlit.ival);
         case A_CALL:    return gen_call(ast);
         case A_IDENT:   return gen_ident(ast);
         case A_STRLIT:  return gen_strlit(ast);
         case A_SIZEOF:  return gen_sizeof(ast);
-        case A_CAST:    return gen_cast(ast);
+        case A_CAST:    return gen_code(ast->cast.val);
         case A_PREINC:
         case A_PREDEC:  return gen_pre(ast);
         case A_POSTINC:
@@ -1006,8 +1033,8 @@ int gen_code(struct ast *ast)
         case A_IFELSE:  return gen_ifelse(ast);
         case A_WHILE:   return gen_while(ast);
         case A_FOR:     return gen_for(ast);
-        case A_LABEL:   return gen_label(ast);
-        case A_GOTO:    return gen_goto(ast);
+        case A_LABEL:   asm_labeln(ast->label.name); return NOREG;
+        case A_GOTO:    asm_jumpn(ast->gotolbl.label); return NOREG;
         case A_TERNARY: return gen_ternary(ast);
     }
 
@@ -1029,44 +1056,33 @@ void gen_datavar(struct type t)
         for (unsigned int i = 0; i < t.struc.memcnt; i++)
             gen_datavar(t.struc.members[i].type);
     }
-    else if (t.ptr)
-        fprintf(g_outf, "\t.long 0\n");
-    else
-    {
-        switch (asm_sizeof(t))
-        {
-            case 1: fprintf(g_outf, "\t.byte  0\n"); break;
-            case 2: fprintf(g_outf, "\t.short 0\n"); break;
-            case 4: fprintf(g_outf, "\t.int   0\n"); break;
-            case 8: fprintf(g_outf, "\t.long  0\n"); break;
-        }
-    }
+    else asm_dataprim(t);
 }
 
 void gen_ast()
 {
     s_globlscope = g_ast;
 
-    fprintf(g_outf, "\t.section .rodata\n");
+    asm_section(".rodata");
 
     for (unsigned int i = 0; i < g_ast->block.strcnt; i++)
-        fprintf(g_outf, "L%d: .string \"%s\"\n", g_ast->block.strs[i].lbl = label(), g_ast->block.strs[i].val);
+    {
+        asm_label(g_ast->block.strs[i].lbl = label());
+        asm_string(g_ast->block.strs[i].val);
+    }
 
-    fprintf(g_outf, "\t.section .data\n");
+    asm_section(".data");
 
     for (unsigned int i = 0; i < g_ast->block.symtab.cnt; i++)
     {
         struct sym *sym = &g_ast->block.symtab.syms[i];
         if (sym->attr & SYM_GLOBAL && !(sym->type.name == TYPE_FUNC && !sym->type.ptr))
         {
-            if (sym->attr & SYM_PUBLIC)
-                fprintf(g_outf, "\t.global %s\n", sym->name);
-            fprintf(g_outf, "%s:\n", sym->name);
-            
+            asm_symbol(sym);
             gen_datavar(sym->type); 
         }
     }
 
-    fprintf(g_outf, "\t.section .text\n");
+    asm_section(".text");
     gen_code(g_ast);
 }

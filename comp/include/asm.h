@@ -9,6 +9,7 @@ struct sym;
 struct ast;
 
 size_t asm_sizeof(struct type t);
+void asm_testandjmp(int r, int lbl, int zf);
 /*int asm_addrof(struct sym *sym, int r);
 int asm_load(struct sym *sym, int r);
 int asm_store(struct sym *sym, int r);

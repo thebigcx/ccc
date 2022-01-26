@@ -11,5 +11,6 @@ fn public main(argc: int32, argv: int8**) -> int32
     var y = 100;
     var z = 20;
 
-    printf("%d\n", func(10));
+    var w = func(10);
+    printf("%d\n", w);
 }
