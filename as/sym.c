@@ -36,30 +36,33 @@ void collect_syms()
                 .sect = currsect
             };
             last = &(*last)->next;
+            continue;
         }
-        else if (line[4] == '.')
+
+        char *strt = *line == '\t' ? line + 1 : line + 4;
+        if (*strt == '.')
         {
-            if (!strncmp(line + 4, ".str", 4))
+            if (!strncmp(strt, ".str", 4))
             {
-                char *direct = line + 10;
+                char *direct = strt + 6;
                 lc += strchr(direct, '"') - direct;
             }
-            else if (!strncmp(line + 4, ".section", 8))
+            else if (!strncmp(strt, ".section", 8))
             {
-                char *strt = line + 13;
-                char *name = strndup(strt, strchr(strt, '\n') - strt);
+                char *nstrt = strt + 9;
+                char *name = strndup(nstrt, strchr(nstrt, '\n') - nstrt);
                 currsect = addsect(name);
                 currsect->offset = lc;
             }
-            else if (!strcmp(line + 4, ".byte")) lc++;
-            else if (!strcmp(line + 4, ".word")) lc += 2;
-            else if (!strcmp(line + 4, ".long")) lc += 4;
-            else if (!strcmp(line + 4, ".quad")) lc += 8;
+            else if (!strcmp(strt, ".byte")) lc++;
+            else if (!strcmp(strt, ".word")) lc += 2;
+            else if (!strcmp(strt, ".long")) lc += 4;
+            else if (!strcmp(strt, ".quad")) lc += 8;
         }
-        else if (isalpha(line[4]))
+        else if (isalpha(*strt))
         {
             // Instruction
-            struct code code = parse_code(line);
+            struct code code = parse_code(strt);
             struct inst *inst = searchi(&code);
             if (!inst)
                 error("Line %d: Invalid instruction\n", lineno);

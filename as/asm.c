@@ -319,14 +319,14 @@ void assemble()
         if (*line == '\n') continue;
         if (isalpha(*line) || *line == '_') continue;
 
-        if (line[4] == '.')
+        char *strt = *line == '\t' ? line + 1 : line + 4;
+        if (*strt == '.')
         {
-            line += 4;
-            char *direct = strndup(line, strchr(line, ' ') - line);
+            char *direct = strndup(strt, strchr(strt, ' ') - strt);
             if (!strcmp(direct, ".section"))
             {
-                line += strlen(direct) + 1;
-                char *name = strndup(line, strchr(line, '\n') - line);
+                strt += strlen(direct) + 1;
+                char *name = strndup(strt, strchr(strt, '\n') - strt);
            
                 if (sect) sect->size = ftell(g_outf) - sect->offset;
 
@@ -342,8 +342,8 @@ void assemble()
             }
             else if (!strcmp(direct, ".global"))
             {
-                line += strlen(direct) + 1;
-                char *name = strndup(line, strchr(line, '\n') - line);
+                strt += strlen(direct) + 1;
+                char *name = strndup(strt, strchr(strt, '\n') - strt);
 
                 findsym(name)->flags |= SYM_GLOB;
 
@@ -351,21 +351,21 @@ void assemble()
             }
             else if (!strcmp(direct, ".str"))
             {
-                line += strlen(direct) + 2;
+                strt += strlen(direct) + 2;
 
                 char str[128] = { 0 };
                 char *strp = str;
-                for (; *line && *line != '"'; line++)
+                for (; *strt && *strt != '"'; strt++)
                 {
-                    if (*line == '\\')
+                    if (*strt == '\\')
                     {
-                        switch (*(++line))
+                        switch (*(++strt))
                         {
                             case 'n': *strp++ = '\n'; break;
                             case '"': *strp++ = '"'; break;
                         }
                     }
-                    else *strp++ = *line;
+                    else *strp++ = *strt;
                 }
 
                 fputs(str, g_outf);
@@ -373,22 +373,22 @@ void assemble()
             }
             else if (!strcmp(direct, ".byte"))
             {
-                line += strlen(direct) + 1;
+                strt += strlen(direct) + 1;
                 emit8(xstrtonum(line, NULL));
             }
             else if (!strcmp(direct, ".word"))
             {
-                line += strlen(direct) + 1;
+                strt += strlen(direct) + 1;
                 emit16(xstrtonum(line, NULL));
             }
             else if (!strcmp(direct, ".long"))
             {
-                line += strlen(direct) + 1;
+                strt += strlen(direct) + 1;
                 emit32(xstrtonum(line, NULL));
             }
             else if (!strcmp(direct, ".quad"))
             {
-                line += strlen(direct) + 1;
+                strt += strlen(direct) + 1;
                 emit64(xstrtonum(line, NULL));
             }
 
@@ -396,7 +396,7 @@ void assemble()
             continue;
         }
 
-        struct code code = parse_code(line);
+        struct code code = parse_code(strt);
         struct inst *ent = searchi(&code);
         if (!ent)
             error("Invalid instruction\n");

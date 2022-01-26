@@ -140,7 +140,7 @@ struct code parse_code(const char *str)
 {
     s_str = (char*)str;
 
-    const char *mnem = s_str + 4;
+    const char *mnem = s_str;
 
     struct code code = { 0 };
     code.mnem = strndup(mnem, strpbrk(mnem, " \n") - mnem);
