@@ -45,7 +45,9 @@ void collect_syms()
             if (!strncmp(strt, ".str", 4))
             {
                 char *direct = strt + 6;
-                lc += strchr(direct, '"') - direct;
+                char *str = stresc(direct);
+                lc += strlen(str) + 1;
+                free(str);
             }
             else if (!strncmp(strt, ".section", 8))
             {
@@ -63,6 +65,7 @@ void collect_syms()
         {
             // Instruction
             struct code code = parse_code(strt);
+            printf("lc: %d: %s\n", lc - currsect->offset, code.mnem);
             struct inst *inst = searchi(&code);
             if (!inst)
                 error("Line %d: Invalid instruction\n", lineno);

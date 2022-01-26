@@ -251,8 +251,8 @@ static void regfree(int r)
 
 static const char *setinsts[] =
 {
-    [OP_EQUAL]  = "sete",
-    [OP_NEQUAL] = "setne",
+    [OP_EQUAL]  = "setz",
+    [OP_NEQUAL] = "setnz",
     [OP_GT]     = "setg",
     [OP_LT]     = "setl",
     [OP_GTE]    = "setge",
@@ -278,14 +278,6 @@ static int asm_addrof(struct sym *sym, int r)
         fprintf(g_outf, "\tlea -%lu(%%rbp), %s\n", sym->stackoff, regs64[r]);
     return r;
 }
-
-static const char *movzs[9] =
-{
-    [1] = "movzbq",
-    [2] = "movzwq",
-    [4] = "movslq",
-    [8] = "movq"
-};
 
 static const char **regs[9] =
 {
@@ -351,11 +343,8 @@ static int asm_load(struct sym *sym, int r)
     {
         if (sym->attr & SYM_LOCAL)
             fprintf(g_outf, "\tmovsx u%d -%lu(%%rbp), %s\n", asm_sizeof(sym->type) * 8, sym->stackoff, regs64[r]);
-
-            //fprintf(g_outf, "\t%s\t-%lu(%%rbp), %s\n", movzs[asm_sizeof(sym->type)], sym->stackoff, regs64[r]);
         else
             fprintf(g_outf, "\tmovsx u%d %s, %s\n", asm_sizeof(sym->type) * 8, sym->name, regs64[r]);
-            //fprintf(g_outf, "\t%s\t%s(%%rip), %s\n", movzs[asm_sizeof(sym->type)], sym->name, regs64[r]);
         return r;
     }
 }
@@ -565,7 +554,7 @@ static int gen_lazyevaljmp(int lbl, struct ast *ast)
     regfree(r1);
 
     int r2 = gen_code(ast->binop.rhs);
-    asm_testandjmp(r2, lbl, 0);
+    asm_testandjmp(r2, lbl, 1);
     regfree(r2);
     return NOREG;
 }
@@ -635,7 +624,7 @@ int asm_unaryminus(int r)
 void asm_testandjmp(int r, int lbl, int zf)
 {
     fprintf(g_outf, "\ttest %s, %s\n", regs64[r], regs64[r]);
-    fprintf(g_outf, "\t%s L%d\n", zf ? "jz" : "jnz", lbl);
+    fprintf(g_outf, "\t%s $L%d\n", zf ? "jz" : "jnz", lbl);
 }
 
 int asm_loadint(unsigned long i)

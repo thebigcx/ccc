@@ -11,6 +11,11 @@ fn public main(argc: int32, argv: int8**) -> int32
     var y = 100;
     var z = 20;
 
+    if (x && x == 10)
+    {
+        printf("x == 10\n");
+    }
+
     var w = func(10);
     printf("%d\n", w);
 }

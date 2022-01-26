@@ -90,7 +90,7 @@ static void write_section(struct section *sect)
             shdr.sh_type = SHT_RELA,
             shdr.sh_info = sectnum(sect),
             shdr.sh_entsize = sizeof(Elf64_Rela),
-            shdr.sh_link = 5; // TODO: TEMP
+            shdr.sh_link = 6; // TODO: TEMP
         }
     }
 

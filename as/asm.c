@@ -352,24 +352,12 @@ void assemble()
             else if (!strcmp(direct, ".str"))
             {
                 strt += strlen(direct) + 2;
-
-                char str[128] = { 0 };
-                char *strp = str;
-                for (; *strt && *strt != '"'; strt++)
-                {
-                    if (*strt == '\\')
-                    {
-                        switch (*(++strt))
-                        {
-                            case 'n': *strp++ = '\n'; break;
-                            case '"': *strp++ = '"'; break;
-                        }
-                    }
-                    else *strp++ = *strt;
-                }
+                char *str = stresc(strt);
 
                 fputs(str, g_outf);
                 fputc(0, g_outf);
+
+                free(str);
             }
             else if (!strcmp(direct, ".byte"))
             {
@@ -441,20 +429,26 @@ void assemble()
                 {
                     sym = findsym(sect->name);
                 }
-                else if (!(sym = findsym(code.op1.sym)))
+                else
                 {
-                    struct symbol null = {
-                        .flags = SYM_UNDEF | SYM_GLOB,
-                        .name = strdup(code.op1.sym)
-                    };
-                    addsym(&null);
                     sym = findsym(code.op1.sym);
-                
-                    sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, -4);
-                    code.op1.val = 0;
+                    if (!sym)
+                    {
+                        struct symbol null = {
+                            .flags = SYM_UNDEF | SYM_GLOB,
+                            .name = strdup(code.op1.sym)
+                        };
+                        addsym(&null);
+                        sym = findsym(code.op1.sym);
+                    }
+                    if (sym->flags & SYM_UNDEF)
+                    {
+                        sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, -4);
+                        code.op1.val = 0;
 
-                    emit(ent->op1 & OP_SIZEM, code.op1.val);
-                    continue;
+                        emit(ent->op1 & OP_SIZEM, code.op1.val);
+                        continue;
+                    }
                 }
             }
             
@@ -468,7 +462,7 @@ void assemble()
                 // Special symbols
                 //const char *sym = !strcmp(code.op1.sym, ".") ? sect->name : code.op1.sym;
 
-                sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, code.op1.val);
+                sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, sym->val);
                 code.op1.val = 0;
             }
 

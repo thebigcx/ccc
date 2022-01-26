@@ -8,3 +8,4 @@ FILE *xfopen(const char *path, const char *access);
 void *memdup(void *mem, size_t n);
 long xstrtonum(const char *str, char **end);
 void error(const char *format, ...);
+char *stresc(const char *str);

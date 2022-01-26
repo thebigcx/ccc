@@ -45,3 +45,23 @@ void error(const char *format, ...)
 
     exit(-1);
 }
+
+char *stresc(const char *str)
+{
+    char buf[256] = { 0 }; // TODO: this is bad
+    char *strp = buf;
+    for (; *str && *str != '"'; str++)
+    {
+        if (*str == '\\')
+        {
+            switch (*(++str))
+            {
+                case 'n': *strp++ = '\n'; break;
+                case '"': *strp++ = '"'; break;
+            }
+        }
+        else *strp++ = *str;
+    }
+
+    return strdup(buf);
+}

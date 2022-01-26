@@ -13,7 +13,7 @@
 #include <getopt.h>
 #include <string.h>
 
-const char *infile = NULL, *outfile = NULL;
+char *infile = NULL, *outfile = NULL;
 
 char *readfile(FILE *f)
 {
@@ -33,8 +33,6 @@ char *readfile(FILE *f)
 
 int main(int argc, char **argv)
 {
-    outfile = "out.s";
-
     char opt;
     while ((opt = getopt(argc, argv, "o:s:")) != -1)
     {
@@ -56,6 +54,12 @@ int main(int argc, char **argv)
     {
         printf("No input file specified!\n");
         return -1;
+    }
+
+    if (!outfile)
+    {
+        outfile = strndup(infile, strlen(infile) - 2);
+        outfile[strlen(outfile) - 1] = 's';
     }
 
     g_inf = fopen(infile, "r");
@@ -82,7 +86,7 @@ int main(int argc, char **argv)
     gen_ast();
     fclose(g_outf);
 
-    system("gcc -g -static out.s");
+    //system("gcc -g -static out.s");
 
     return 0;
 }
