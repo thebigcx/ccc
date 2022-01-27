@@ -102,6 +102,11 @@ static struct codeop parse_op()
             {
                 op.val = parse_digit_op();
             }
+            else if (isalpha(*s_str) || *s_str == '_')
+            {
+                op.sym = strndup(s_str, strpbrk(s_str, ",\n(") - s_str);
+                s_str = strpbrk(s_str, ",\n(");
+            }
             else op.sib.flags |= SIB_NODISP;
 
             if (*s_str != '(') break;

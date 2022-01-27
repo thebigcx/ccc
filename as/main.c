@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     cleanup();
 
     char cmd[64];
-    snprintf(cmd, 64, "gcc %s -static", outf_name);
+    snprintf(cmd, 64, "gcc %s -static -fpie", outf_name);
     printf("%s\n", cmd);
 
     system(cmd);

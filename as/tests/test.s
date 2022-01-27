@@ -3,7 +3,7 @@
     .global main
 main:
     movzx u8 -4(%rbp), %rax
-    mov $str, %rdi
+    lea str(%rip), %rdi
     call $puts
     ret
 

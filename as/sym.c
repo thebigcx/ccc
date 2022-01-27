@@ -81,7 +81,6 @@ void collect_syms()
         {
             // Instruction
             struct code code = parse_code(strt);
-            printf("lc: %d: %s\n", lc - currsect->offset, code.mnem);
             struct inst *inst = searchi(&code);
             if (!inst)
                 error("Line %d: Invalid instruction: %s\n", lineno, line);
@@ -171,7 +170,7 @@ size_t sectnum(struct section *sect)
     return i;
 }
 
-struct reloc *sect_add_reloc(struct section *sect, size_t offset, struct symbol *sym, int64_t addend)
+struct reloc *sect_add_reloc(struct section *sect, size_t offset, struct symbol *sym, int64_t addend, int flags)
 {
     struct reloc **last;
     for (last = &sect->rels; *last; last = &((*last)->next));
@@ -179,7 +178,8 @@ struct reloc *sect_add_reloc(struct section *sect, size_t offset, struct symbol 
     struct reloc rel = {
         .sym = sym,
         .addend = addend,
-        .offset = offset
+        .offset = offset,
+        .flags = flags
     };
 
     *last = memdup(&rel, sizeof(struct reloc));

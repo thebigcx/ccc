@@ -429,7 +429,21 @@ void assemble()
             emit8((sib.scale << 6) | (sib.idx << 3) | sib.base);
 
         if (ISMEM(code.op1.type) && !(code.op1.sib.flags & SIB_NODISP))
+        {
+            if (code.op1.sym)
+            {
+                struct symbol *sym = findsym(code.op1.sym);
+                if (code.op1.sib.base == REG_RIP)
+                {
+                    sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, sym->val - 4, REL_PCREL);
+                    code.op1.val = 0;
+                }
+                else
+                    code.op1.val = sym->val;
+            }
+            
             emit(code.op1.sib.flags & SIB_DISP8 ? OP_SIZE8 : OP_SIZE32, code.op1.val);
+        }
         else if (ISMEM(code.op2.type) && !(code.op2.sib.flags & SIB_NODISP))
             emit(code.op2.sib.flags & SIB_DISP8 ? OP_SIZE8 : OP_SIZE32, code.op2.val);
 
@@ -456,7 +470,7 @@ void assemble()
                     }
                     if (sym->flags & SYM_UNDEF)
                     {
-                        sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, -4);
+                        sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, -4, 0);
                         code.op1.val = 0;
 
                         emit(ent->op1 & OP_SIZEM, code.op1.val);
@@ -475,7 +489,7 @@ void assemble()
                 // Special symbols
                 //const char *sym = !strcmp(code.op1.sym, ".") ? sect->name : code.op1.sym;
 
-                sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, sym->val);
+                sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, sym->val, 0);
                 code.op1.val = 0;
             }
 

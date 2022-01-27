@@ -32,12 +32,15 @@ struct symbol *findsym(const char *name);
 struct symbol *addsym(struct symbol *sym);
 void sort_symbols();
 
+#define REL_PCREL 1
+
 struct reloc
 {
     struct symbol *sym;
     int64_t addend;
     unsigned int offset;
-
+    int flags;
+    
     struct reloc *next;
 };
 
@@ -57,4 +60,4 @@ struct section *creatsect(const char *name);
 size_t sectcnt();
 size_t sectnum(struct section *sect);
 
-struct reloc *sect_add_reloc(struct section *sect, size_t offset, struct symbol *sym, int64_t addend);
+struct reloc *sect_add_reloc(struct section *sect, size_t offset, struct symbol *sym, int64_t addend, int flags);
