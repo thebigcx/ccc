@@ -23,12 +23,34 @@ void do_cmd_args(int argc, char **argv)
     char opt;
     while ((opt = getopt(argc, argv, "o:")) != -1)
     {
-        if (opt != 'o') usage();
+        switch (opt)
+        {
+            case 'o':
+                outf_name = strdup(optarg);
+                break;
+
+            default: usage(); break;
+        }
     }
 
-    inf_name = argv[1];
-    outf_name = strdup(inf_name);
-    outf_name[strlen(outf_name) - 1] = 'o';
+    for (char **arg = argv + 1; *arg; arg++)
+    {
+        if ((*arg)[0] == '-' && (*arg)[1] == 'o') arg++;
+        else
+        {
+            inf_name = strdup(*arg);
+            break;
+        }
+    }
+
+    if (!inf_name)
+        usage();
+
+    if (!outf_name)
+    {
+        outf_name = strndup(inf_name, strrchr(inf_name, '.') - inf_name + 2);
+        outf_name[strlen(outf_name) - 1] = 'o';
+    }
 }
 
 void cleanup()
@@ -59,10 +81,9 @@ int main(int argc, char **argv)
     collect_syms();
     assemble();
 
-    //TODO: TEMP
-
     cleanup();
 
+    // TODO: TEMP
     char cmd[64];
     snprintf(cmd, 64, "gcc %s -static -fpie", outf_name);
     printf("%s\n", cmd);
