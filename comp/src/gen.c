@@ -342,9 +342,9 @@ static int asm_load(struct sym *sym, int r)
     else
     {
         if (sym->attr & SYM_LOCAL)
-            fprintf(g_outf, "\tmovsx u%d -%lu(%%rbp), %s\n", asm_sizeof(sym->type) * 8, sym->stackoff, regs64[r]);
+            fprintf(g_outf, "\tmov -%lu(%%rbp), %s\n", sym->stackoff, regs[asm_sizeof(sym->type)][r]);
         else
-            fprintf(g_outf, "\tmovsx u%d %s, %s\n", asm_sizeof(sym->type) * 8, sym->name, regs64[r]);
+            fprintf(g_outf, "\tmov %s, %s\n", sym->name, regs[asm_sizeof(sym->type)][r]);
         return r;
     }
 }

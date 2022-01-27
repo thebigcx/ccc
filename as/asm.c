@@ -98,6 +98,9 @@ struct inst g_insttbl[] =
     // Moves
     { .mnem = "mov", .opcode = 0x88, .op1 = OP_REG | OP_SIZE8, .op2 = OP_RM | OP_SIZE8, .reg = -1  },
     { .mnem = "mov", .opcode = 0x89, .op1 = OP_REG | OP_SZEX8, .op2 = OP_RM | OP_SZEX8, .reg = -1  },
+    { .mnem = "mov", .opcode = 0x8a, .op1 = OP_RM | OP_SIZE8, .op2 = OP_REG | OP_SIZE8, .reg = -1  },
+    { .mnem = "mov", .opcode = 0x8b, .op1 = OP_RM | OP_SZEX8, .op2 = OP_REG | OP_SZEX8, .reg = -1  },
+
     { .mnem = "mov", .opcode = 0xc6, .op1 = OP_IMM | OP_SIZE8, .op2 = OP_RM | OP_SIZE8, .reg = 0 },
     { .mnem = "mov", .opcode = 0xc7, .op1 = OP_IMM | OP_SIZE32, .op2 = OP_RM | OP_SIZE64, .reg = 0 },
     { .mnem = "mov", .opcode = 0xb0, .op1 = OP_IMM | OP_SIZE8, .op2 = OP_REG | OP_SIZE8, .reg = -1, .flags = IF_ROPCODE  },

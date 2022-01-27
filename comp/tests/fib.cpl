@@ -5,7 +5,7 @@ fn public main()
     var y: uint64 = 0;
     var x: uint64 = 1;
 
-    while (x < 1000000000000000000)
+    while (x < 1000000)
     {
         printf("%lu\n", x);
         

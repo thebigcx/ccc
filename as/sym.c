@@ -84,7 +84,7 @@ void collect_syms()
             printf("lc: %d: %s\n", lc - currsect->offset, code.mnem);
             struct inst *inst = searchi(&code);
             if (!inst)
-                error("Line %d: Invalid instruction\n", lineno);
+                error("Line %d: Invalid instruction: %s\n", lineno, line);
             lc += instsize(inst, &code);
         }
     }
