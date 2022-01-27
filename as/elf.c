@@ -37,7 +37,10 @@ void elf_begin_file()
 
 static void write_symbol(struct symbol *sym)
 {
-    uint8_t type = sym->flags & SYM_SECT ? STT_SECTION : STT_NOTYPE;
+    uint8_t type = sym->type == SYMT_FUNC   ? STT_FUNC
+                 : sym->type == SYMT_OBJECT ? STT_OBJECT
+                 : sym->type == SYMT_FILE   ? STT_FILE
+                 : sym->flags & SYM_SECT ? STT_SECTION : STT_NOTYPE;
     uint8_t bind = sym->flags & SYM_GLOB ? STB_GLOBAL : STB_LOCAL;
 
     Elf64_Sym esym = {
@@ -45,7 +48,9 @@ static void write_symbol(struct symbol *sym)
         .st_info = ELF64_ST_INFO(bind, type)
     };
 
-    if (!(sym->flags & SYM_UNDEF))
+    if (sym->type == SYMT_FILE)
+        esym.st_shndx = SHN_ABS;
+    else if (!(sym->flags & SYM_UNDEF))
     {
         size_t sect = 1;
         for (struct section *cand = g_sects; cand && cand != sym->sect; cand = cand->next, sect++);

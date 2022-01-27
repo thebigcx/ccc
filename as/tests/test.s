@@ -1,4 +1,5 @@
     .section .text
+    .type main, func
     .global main
 main:
     movzx u8 -4(%rbp), %rax

@@ -7,21 +7,29 @@
 #define SYM_SECT  (1 << 1)
 #define SYM_UNDEF (1 << 2) // Undefined
 
+#define SYMT_NOTYPE 0
+#define SYMT_FUNC   1
+#define SYMT_OBJECT 2
+#define SYMT_FILE   3
+
 struct section;
 
 struct symbol
 {
     char *name;
     uint64_t val;
+    int type;
     int namei; // Name index into string section
     int flags; // Flags
     struct section *sect;
     struct symbol *next; // Next symbol in linked-list
 };
 
+int symtypestr(const char *str);
+
 void collect_syms();
 struct symbol *findsym(const char *name);
-void addsym(struct symbol *sym);
+struct symbol *addsym(struct symbol *sym);
 void sort_symbols();
 
 struct reloc

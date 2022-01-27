@@ -9,9 +9,18 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+int symtypestr(const char *str)
+{
+    if (!strcmp(str, "func")) return SYMT_FUNC;
+    else if (!strcmp(str, "object")) return SYMT_FUNC;
+    else if (!strcmp(str, "file")) return SYMT_FILE;
+
+    return -1;
+}
+
 void collect_syms()
 {
-    struct symbol **last = &g_syms;
+    //struct symbol **last = &g_syms;
     uint64_t lc = 0; // Location counter
 
     struct section *currsect = NULL;
@@ -29,13 +38,20 @@ void collect_syms()
             char *lbl = strdup(line);
             *strchr(lbl, ':') = 0;
 
-            *last = calloc(1, sizeof(struct symbol));
+            struct symbol sym = {
+                .name = lbl,
+                .val = lc - currsect->offset,
+                .sect = currsect
+            };
+
+            addsym(&sym);
+            /**last = calloc(1, sizeof(struct symbol));
             **last = (struct symbol) {
                 .name = lbl,
                 .val = lc - currsect->offset,
                 .sect = currsect
             };
-            last = &(*last)->next;
+            last = &(*last)->next;*/
             continue;
         }
 
@@ -84,12 +100,11 @@ struct symbol *findsym(const char *name)
     return NULL;
 }
 
-void addsym(struct symbol *sym)
+struct symbol *addsym(struct symbol *sym)
 {
-    struct symbol *last;
-    for (last = g_syms; last->next; last = last->next);
-    
-    last->next = memdup(sym, sizeof(struct symbol));
+    struct symbol **last;
+    for (last = &g_syms; (*last); last = &((*last)->next));
+    return *last = memdup(sym, sizeof(struct symbol));
 }
 
 static int sym_compar(const void *a, const void *b)

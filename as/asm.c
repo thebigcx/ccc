@@ -349,6 +349,16 @@ void assemble()
 
                 free(name);
             }
+            else if (!strncmp(strt, ".type", 5))
+            {
+                char *sym = strt + 6;
+                *strchr(sym, ',') = 0;
+
+                char *type = sym + strlen(sym) + 2;
+                *strchr(type, '\n') = 0;
+
+                findsym(sym)->type = symtypestr(type);
+            }
             else if (!strcmp(direct, ".str"))
             {
                 strt += strlen(direct) + 2;

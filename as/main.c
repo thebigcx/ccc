@@ -2,6 +2,7 @@
 #include "decl.h"
 #include "lib.h"
 #include "asm.h"
+#include "sym.h"
 
 #include <stdio.h>
 #include <getopt.h>
@@ -48,6 +49,12 @@ int main(int argc, char **argv)
     atexit(cleanup);
 
     printf("as %s -o %s\n", inf_name, outf_name);
+
+    struct symbol sym = {
+        .name = inf_name,
+        .type = SYMT_FILE,
+    };
+    addsym(&sym);
 
     collect_syms();
     assemble();
