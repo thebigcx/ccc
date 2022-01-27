@@ -1,6 +1,7 @@
 #include "elf.h"
 #include "decl.h"
 #include "sym.h"
+#include "lib.h"
 
 #include <elf.h>
 #include <stdio.h>
@@ -90,7 +91,7 @@ static void write_section(struct section *sect)
             shdr.sh_type = SHT_RELA,
             shdr.sh_info = sectnum(sect),
             shdr.sh_entsize = sizeof(Elf64_Rela),
-            shdr.sh_link = 6; // TODO: TEMP
+            shdr.sh_link = sectcnt() - 1; // TODO: TEMP
         }
     }
 
@@ -102,6 +103,9 @@ void elf_end_file()
 {
     sort_symbols();
 
+    struct section *relsects[32];
+    size_t relsectcnt = 0;
+
     for (struct section *s = g_sects; s; s = s->next)
     {
         if (s->rels)
@@ -109,9 +113,10 @@ void elf_end_file()
             // Prepend '.rela' to section name
             char *name = strcat(strcpy(malloc(strlen(s->name) + 6), ".rela"), s->name);
             struct section *rel = creatsect(name);
-           
-            rel->next = s->next;
-            s->next = rel;
+            relsects[relsectcnt++] = rel;
+
+            //rel->next = s->next;
+            //s->next = rel;
             
             rel->offset = ftell(g_outf);
 
@@ -136,6 +141,13 @@ void elf_end_file()
         }
     }
 
+    for (size_t i = 0; i < relsectcnt; i++)
+    {
+        struct section *s = findsect(relsects[i]->name + 5);
+        relsects[i]->next = s->next;
+        s->next = relsects[i];
+    }
+
     struct section *strtab = addsect(".strtab");
     strtab->offset = ftell(g_outf);
 
@@ -143,8 +155,7 @@ void elf_end_file()
     for (struct symbol *sym = g_syms; sym; sym = sym->next)
     {
         sym->namei = ftell(g_outf) - strtab->offset;
-        fputs(sym->name, g_outf);
-        fputc(0, g_outf);
+        fwritestr(sym->name, g_outf);
     }
 
     strtab->size = ftell(g_outf) - strtab->offset;
@@ -167,8 +178,7 @@ void elf_end_file()
     for (struct section *s = g_sects; s; s = s->next)
     {
         s->namei = ftell(g_outf) - shstrtab->offset;
-        fputs(s->name, g_outf);
-        fputc(0, g_outf);
+        fwritestr(s->name, g_outf);
     }
 
     shstrtab->size = ftell(g_outf) - shstrtab->offset;

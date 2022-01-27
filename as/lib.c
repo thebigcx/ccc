@@ -65,3 +65,10 @@ char *stresc(const char *str)
 
     return strdup(buf);
 }
+
+// Write string to file, including null character
+void fwritestr(const char *str, FILE *file)
+{
+    fputs(str, file);
+    fputc(0, file);
+}
