@@ -72,10 +72,15 @@ void collect_syms()
                 currsect = addsect(name);
                 currsect->offset = lc;
             }
-            else if (!strcmp(strt, ".byte")) lc++;
-            else if (!strcmp(strt, ".word")) lc += 2;
-            else if (!strcmp(strt, ".long")) lc += 4;
-            else if (!strcmp(strt, ".quad")) lc += 8;
+            else if (!strncmp(strt, ".byte", 5)) lc++;
+            else if (!strncmp(strt, ".word", 5)) lc += 2;
+            else if (!strncmp(strt, ".long", 5)) lc += 4;
+            else if (!strncmp(strt, ".quad", 5)) lc += 8;
+            else if (!strncmp(strt, ".skip", 5))
+            {
+                strt += 6;
+                lc += xstrtonum(strt, NULL);
+            }
         }
         else if (isalpha(*strt))
         {

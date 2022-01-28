@@ -45,7 +45,8 @@ static void write_symbol(struct symbol *sym)
 
     Elf64_Sym esym = {
         .st_name = sym->namei,
-        .st_info = ELF64_ST_INFO(bind, type)
+        .st_info = ELF64_ST_INFO(bind, type),
+        .st_size = sym->size
     };
 
     if (sym->type == SYMT_FILE)

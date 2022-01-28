@@ -1,4 +1,5 @@
     .section .text
+    .skip 100
     .type main, func
     .global main
 main:

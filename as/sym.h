@@ -21,6 +21,7 @@ struct symbol
     int type;
     int namei; // Name index into string section
     int flags; // Flags
+    size_t size;
     struct section *sect;
     struct symbol *next; // Next symbol in linked-list
 };

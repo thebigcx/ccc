@@ -362,6 +362,14 @@ void assemble()
 
                 findsym(sym)->type = symtypestr(type);
             }
+            else if (!strncmp(strt, ".size", 5))
+            {
+                char *sym = strt + 6;
+                *strchr(sym, ',') = 0;
+
+                char *size = sym + strlen(sym) + 2;
+                findsym(sym)->size = xstrtonum(size, NULL);
+            }
             else if (!strcmp(direct, ".str"))
             {
                 strt += strlen(direct) + 2;
@@ -375,22 +383,30 @@ void assemble()
             else if (!strcmp(direct, ".byte"))
             {
                 strt += strlen(direct) + 1;
-                emit8(xstrtonum(line, NULL));
+                emit8(xstrtonum(strt, NULL));
             }
             else if (!strcmp(direct, ".word"))
             {
                 strt += strlen(direct) + 1;
-                emit16(xstrtonum(line, NULL));
+                emit16(xstrtonum(strt, NULL));
             }
             else if (!strcmp(direct, ".long"))
             {
                 strt += strlen(direct) + 1;
-                emit32(xstrtonum(line, NULL));
+                emit32(xstrtonum(strt, NULL));
             }
             else if (!strcmp(direct, ".quad"))
             {
                 strt += strlen(direct) + 1;
-                emit64(xstrtonum(line, NULL));
+                emit64(xstrtonum(strt, NULL));
+            }
+            else if (!strcmp(direct, ".skip"))
+            {
+                strt += strlen(direct) + 1;
+                size_t s = xstrtonum(strt, NULL);
+
+                for (size_t i = 0; i < s; i++)
+                    emit8(0);
             }
 
             free(direct);
