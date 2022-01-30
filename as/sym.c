@@ -3,6 +3,7 @@
 #include "inst.h"
 #include "lib.h"
 #include "parse.h"
+#include "asm.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -89,7 +90,7 @@ void collect_syms()
             struct inst *inst = searchi(&code);
             if (!inst)
                 error("Line %d: Invalid instruction: %s\n", lineno, line);
-            lc += instsize(inst, &code);
+            lc += instsize64(inst, &code);
         }
     }
 

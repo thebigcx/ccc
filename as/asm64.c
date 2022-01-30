@@ -273,7 +273,7 @@ void mkmodrmsib(struct modrm *modrm, struct sib *sib, struct code *code, struct 
 #define OPOVPRE(code, inst) ((inst).size & OP_SIZE16 || ISREGSZ((code).op1.type, OP_SIZE16) || ISREGSZ((code).op2.type, OP_SIZE16))
 #define ADROVPRE(code, inst) ((ISMEM((code).op1.type) && (code).op1.sib.flags & SIB_32BIT) || (ISMEM((code).op2.type) && (code).op2.sib.flags & SIB_32BIT))
 
-size_t instsize(struct inst *inst, struct code *code)
+size_t instsize64(struct inst *inst, struct code *code)
 {
     size_t s = 1; // opcode
 
@@ -306,14 +306,106 @@ size_t instsize(struct inst *inst, struct code *code)
     return s;
 }
 
-void assemble()
+void assemble64(struct code *code, struct inst *inst, size_t lc)
+{
+    struct modrm modrm = { .reg = inst->reg != (uint8_t)-1 ? inst->reg : 0 };
+    struct sib sib = { 0 };
+    mkmodrmsib(&modrm, &sib, code, inst);
+    
+    uint8_t rex = mkrex(iscode64(code, inst), &modrm);
+    if (rex != REXFIX) emit8(rex);
+
+    if (OPOVPRE(*code, *inst)) emit8(0x66);
+    if (ADROVPRE(*code, *inst)) emit8(0x67);
+
+    if (inst->pre) emit8(inst->pre);
+
+    uint8_t opcode = inst->opcode;
+
+    if (inst->flags & IF_ROPCODE) opcode += modrm.reg & 0b111;
+
+    emit8(opcode);
+
+    if ((modrm.reg || ISRM(inst->op1) || ISRM(inst->op2)) && !(inst->flags & IF_ROPCODE))
+        emit8((modrm.mod << 6) | ((modrm.reg & 0b111) << 3) | (modrm.rm & 0b111));
+
+    if (sib.flags & SIB_USED)
+        emit8((sib.scale << 6) | (sib.idx << 3) | sib.base);
+
+    if (ISMEM(code->op1.type) && !(code->op1.sib.flags & SIB_NODISP))
+    {
+        if (code->op1.sym)
+        {
+            struct symbol *sym = findsym(code->op1.sym);
+            if (code->op1.sib.base == REG_RIP)
+            {
+                sect_add_reloc(g_currsect, ftell(g_outf) - g_currsect->offset, sym, sym->val - 4, REL_PCREL);
+                code->op1.val = 0;
+            }
+            else
+                code->op1.val = sym->val;
+        }
+        
+        emit(code->op1.sib.flags & SIB_DISP8 ? OP_SIZE8 : OP_SIZE32, code->op1.val);
+    }
+    else if (ISMEM(code->op2.type) && !(code->op2.sib.flags & SIB_NODISP))
+        emit(code->op2.sib.flags & SIB_DISP8 ? OP_SIZE8 : OP_SIZE32, code->op2.val);
+
+    if (ISIMM(code->op1.type))
+    {
+        struct symbol *sym = NULL;
+        if (code->op1.sym)
+        {
+            if (!strcmp(code->op1.sym, "."))
+            {
+                sym = findsym(g_currsect->name);
+            }
+            else
+            {
+                sym = findsym(code->op1.sym);
+                if (!sym)
+                {
+                    struct symbol null = {
+                        .flags = SYM_UNDEF | SYM_GLOB,
+                        .name = strdup(code->op1.sym)
+                    };
+                    addsym(&null);
+                    sym = findsym(code->op1.sym);
+                }
+                if (sym->flags & SYM_UNDEF)
+                {
+                    sect_add_reloc(g_currsect, ftell(g_outf) - g_currsect->offset, sym, -4, 0);
+                    code->op1.val = 0;
+
+                    emit(inst->op1 & OP_SIZEM, code->op1.val);
+                    return;
+                }
+            }
+        }
+        
+        if (inst->flags & IF_REL)
+        {
+            if (code->op1.sym) code->op1.val += sym->val;
+            code->op1.val -= lc;
+        }
+        else if (code->op1.sym)
+        {
+            sect_add_reloc(g_currsect, ftell(g_outf) - g_currsect->offset, sym, sym->val, 0);
+            code->op1.val = 0;
+        }
+
+        emit(inst->op1 & OP_SIZEM, code->op1.val);
+    }
+}
+
+void assemble_file()
 {
     char *line = NULL;
     size_t n = 0;
 
     uint64_t lc = 0;
 
-    struct section *sect = NULL;
+    g_currsect = NULL;
 
     elf_begin_file();
 
@@ -331,15 +423,15 @@ void assemble()
                 strt += strlen(direct) + 1;
                 char *name = strndup(strt, strchr(strt, '\n') - strt);
            
-                if (sect) sect->size = ftell(g_outf) - sect->offset;
+                if (g_currsect) g_currsect->size = ftell(g_outf) - g_currsect->offset;
 
-                sect = findsect(name);
-                sect->offset += 64; // sizeof(Elf64_Ehdr) TODO: don't do this
+                g_currsect = findsect(name);
+                g_currsect->offset += 64; // sizeof(Elf64_Ehdr) TODO: don't do this
 
                 struct symbol sym = {
                     .name = name,
                     .flags = SYM_SECT,
-                    .sect = sect
+                    .sect = g_currsect
                 };
                 addsym(&sym);
             }
@@ -418,101 +510,11 @@ void assemble()
         if (!ent)
             error("Invalid instruction\n");
 
-        lc += instsize(ent, &code);
+        lc += instsize64(ent, &code);
 
-        struct modrm modrm = { .reg = ent->reg != (uint8_t)-1 ? ent->reg : 0 };
-        struct sib sib = { 0 };
-        mkmodrmsib(&modrm, &sib, &code, ent);
-        
-        uint8_t rex = mkrex(iscode64(&code, ent), &modrm);
-        if (rex != REXFIX) emit8(rex);
-
-        if (OPOVPRE(code, *ent)) emit8(0x66);
-        if (ADROVPRE(code, *ent)) emit8(0x67);
-
-        if (ent->pre) emit8(ent->pre);
-
-        uint8_t opcode = ent->opcode;
-
-        if (ent->flags & IF_ROPCODE) opcode += modrm.reg & 0b111;
-
-        emit8(opcode);
-
-        if ((modrm.reg || ISRM(ent->op1) || ISRM(ent->op2)) && !(ent->flags & IF_ROPCODE))
-            emit8((modrm.mod << 6) | ((modrm.reg & 0b111) << 3) | (modrm.rm & 0b111));
-
-        if (sib.flags & SIB_USED)
-            emit8((sib.scale << 6) | (sib.idx << 3) | sib.base);
-
-        if (ISMEM(code.op1.type) && !(code.op1.sib.flags & SIB_NODISP))
-        {
-            if (code.op1.sym)
-            {
-                struct symbol *sym = findsym(code.op1.sym);
-                if (code.op1.sib.base == REG_RIP)
-                {
-                    sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, sym->val - 4, REL_PCREL);
-                    code.op1.val = 0;
-                }
-                else
-                    code.op1.val = sym->val;
-            }
-            
-            emit(code.op1.sib.flags & SIB_DISP8 ? OP_SIZE8 : OP_SIZE32, code.op1.val);
-        }
-        else if (ISMEM(code.op2.type) && !(code.op2.sib.flags & SIB_NODISP))
-            emit(code.op2.sib.flags & SIB_DISP8 ? OP_SIZE8 : OP_SIZE32, code.op2.val);
-
-        if (ISIMM(code.op1.type))
-        {
-            struct symbol *sym = NULL;
-            if (code.op1.sym)
-            {
-                if (!strcmp(code.op1.sym, "."))
-                {
-                    sym = findsym(sect->name);
-                }
-                else
-                {
-                    sym = findsym(code.op1.sym);
-                    if (!sym)
-                    {
-                        struct symbol null = {
-                            .flags = SYM_UNDEF | SYM_GLOB,
-                            .name = strdup(code.op1.sym)
-                        };
-                        addsym(&null);
-                        sym = findsym(code.op1.sym);
-                    }
-                    if (sym->flags & SYM_UNDEF)
-                    {
-                        sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, -4, 0);
-                        code.op1.val = 0;
-
-                        emit(ent->op1 & OP_SIZEM, code.op1.val);
-                        continue;
-                    }
-                }
-            }
-            
-            if (ent->flags & IF_REL)
-            {
-                if (code.op1.sym) code.op1.val += sym->val;
-                code.op1.val -= lc;
-            }
-            else if (code.op1.sym)
-            {
-                // Special symbols
-                //const char *sym = !strcmp(code.op1.sym, ".") ? sect->name : code.op1.sym;
-
-                sect_add_reloc(sect, ftell(g_outf) - sect->offset, sym, sym->val, 0);
-                code.op1.val = 0;
-            }
-
-            emit(ent->op1 & OP_SIZEM, code.op1.val);
-        }
+        assemble64(&code, ent, lc);
     }
 
-    if (sect) sect->size = ftell(g_outf) - sect->offset;
+    if (g_currsect) g_currsect->size = ftell(g_outf) - g_currsect->offset;
     elf_end_file();
 }

@@ -79,7 +79,7 @@ int main(int argc, char **argv)
     addsym(&sym);
 
     collect_syms();
-    assemble();
+    assemble_file();
 
     cleanup();
 

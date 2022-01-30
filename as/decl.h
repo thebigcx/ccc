@@ -12,3 +12,4 @@ extern_ FILE *g_inf; // Input file
 extern_ FILE *g_outf; // Output file
 extern_ struct symbol *g_syms; // Symbol table
 extern_ struct section *g_sects; // Sections
+extern_ struct section *g_currsect; // Current section

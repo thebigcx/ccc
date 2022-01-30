@@ -87,4 +87,3 @@ struct inst
 struct code;
 
 struct inst *searchi(struct code *code);
-size_t instsize(struct inst *inst, struct code *code);
