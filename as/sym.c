@@ -87,7 +87,7 @@ void collect_syms()
         {
             // Instruction
             struct code code = parse_code(strt);
-            struct inst *inst = searchi(&code);
+            struct inst *inst = searchi64(&code);
             if (!inst)
                 error("Line %d: Invalid instruction: %s\n", lineno, line);
             lc += instsize64(inst, &code);

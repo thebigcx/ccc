@@ -83,7 +83,3 @@ struct inst
     int flags;
     uint8_t size; // optional size attribute
 };
-
-struct code;
-
-struct inst *searchi(struct code *code);
