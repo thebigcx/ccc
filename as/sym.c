@@ -21,7 +21,6 @@ int symtypestr(const char *str)
 
 void collect_syms()
 {
-    //struct symbol **last = &g_syms;
     uint64_t lc = 0; // Location counter
 
     struct section *currsect = NULL;
@@ -46,13 +45,6 @@ void collect_syms()
             };
 
             addsym(&sym);
-            /**last = calloc(1, sizeof(struct symbol));
-            **last = (struct symbol) {
-                .name = lbl,
-                .val = lc - currsect->offset,
-                .sect = currsect
-            };
-            last = &(*last)->next;*/
             continue;
         }
 
@@ -90,22 +82,11 @@ void collect_syms()
         else if (isalpha(*strt))
         {
             // Instruction
-            //if (g_currsize == 64)
-            //{
-                struct code code = parse_code(strt);
-                struct inst *inst = searchi64(&code);
-                if (!inst)
-                    error("Line %d: Invalid instruction: %s\n", lineno, line);
-                lc += instsize64(inst, &code);
-            /*}
-            else if (g_currsize == 16)
-            {
-                struct code code = parse_code(strt);
-                struct inst *inst = searchi16(&code);
-                if (!inst)
-                    error("Line %d: Invalid instruction: %s\n", lineno, line);
-                lc += instsize16(inst, &code);
-            }*/
+            struct code code = parse_code(strt);
+            struct inst *inst = searchi(&code);
+            if (!inst)
+                error("Line %d: Invalid instruction: %s\n", lineno, line);
+            lc += instsize(inst, &code);
         }
     }
 

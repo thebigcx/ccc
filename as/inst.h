@@ -23,7 +23,9 @@
 #define OP_SIZE16 (1 << 4)
 #define OP_SIZE32 (1 << 5)
 #define OP_SIZE64 (1 << 6)
-#define OP_SIZEM  (0b1111 << 3)
+#define OP_CTLREG (1 << 7)
+#define OP_DBGREG (1 << 8)
+#define OP_SIZEM  (0b111111 << 3)
 
 // All excluding 8-bit
 #define OP_SZEX8 (OP_SIZE16 | OP_SIZE32 | OP_SIZE64)
@@ -49,6 +51,15 @@
 #define REG_R13 0b1101
 #define REG_R14 0b1110
 #define REG_R15 0b1111
+
+#define REG_CR0 0b0000
+#define REG_CR1 0b0001
+#define REG_CR2 0b0010
+#define REG_CR3 0b0011
+#define REG_CR4 0b0100
+#define REG_CR5 0b0101
+#define REG_CR6 0b0110
+#define REG_CR7 0b0111
 
 // Special register
 #define REG_RIP 0b10000

@@ -2,4 +2,3 @@
     .section .text
 label:
     jmp $label
-    add %eax, 10(%bp, %si)

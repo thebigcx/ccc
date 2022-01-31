@@ -121,9 +121,6 @@ void elf_end_file()
             struct section *rel = creatsect(name);
             relsects[relsectcnt++] = rel;
 
-            //rel->next = s->next;
-            //s->next = rel;
-            
             rel->offset = ftell(g_outf);
 
             for (struct reloc *r = s->rels; r; r = r->next)
