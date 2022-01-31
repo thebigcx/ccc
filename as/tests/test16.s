@@ -1,3 +1,5 @@
     .code16
     .section .text
-    add %eax, %ebx
+label:
+    jmp $label
+    add %eax, (%ebx)

@@ -119,6 +119,7 @@ static struct codeop parse_op()
                 parse_reg(&reg);
                 op.sib.base = reg.val;
                 if (ISREGSZ(reg.type, OP_SIZE32)) op.sib.flags |= SIB_32BIT;
+                else if (ISREGSZ(reg.type, OP_SIZE16)) op.sib.flags |= SIB_16BIT;
             }
 
             if (*s_str++ == ')') break;
@@ -128,6 +129,7 @@ static struct codeop parse_op()
                 parse_reg(&reg);
                 op.sib.idx = reg.val;
                 if (ISREGSZ(reg.type, OP_SIZE32)) op.sib.flags |= SIB_32BIT;
+                else if (ISREGSZ(reg.type, OP_SIZE16)) op.sib.flags |= SIB_16BIT;
             }
             s_str++;
 

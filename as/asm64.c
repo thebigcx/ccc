@@ -112,7 +112,10 @@ static struct inst s_insttbl[] = {
     { .mnem = "movsx", .opcode = 0x63, .op1 = OP_RM | OP_SIZE32, .op2 = OP_REG | OP_SZEX8, .reg = -1 },
 
     // Jump & Conditional jumps
-    { .mnem = "jmp", .opcode = 0xe9, .op1 = OP_IMM | OP_SIZE32, .reg = -1, .flags = IF_REL },
+    
+    // No short jump, complicates things too much
+    { .mnem = "jmp", .opcode = 0xe9, .op1 = OP_IMM | OP_SIZE16 | OP_SIZE32, .reg = -1, .flags = IF_REL },
+    
     { .mnem = "jz",  .pre = 0x0f, .opcode = 0x84, .op1 = OP_IMM | OP_SIZE32, .reg = -1, .flags = IF_REL },
     { .mnem = "jnz", .pre = 0x0f, .opcode = 0x85, .op1 = OP_IMM | OP_SIZE32, .reg = -1, .flags = IF_REL },
     { .mnem = "js",  .pre = 0x0f, .opcode = 0x88, .op1 = OP_IMM | OP_SIZE32, .reg = -1, .flags = IF_REL },
@@ -188,36 +191,43 @@ void mkmodrmsib(struct modrm *modrm, struct sib *sib, struct code *code, struct 
     }
     else
     {
-        if (mem->sib.base == REG_RIP)
+        if (mem->sib.flags & SIB_16BIT)
         {
-            modrm->mod = 0;
-            modrm->rm = 0b101;
-            return;
-        }
 
-        if (!(mem->sib.flags & SIB_NODISP))
-        {
-            if (immsize(mem->val) == 1)
-                mem->sib.flags |= SIB_DISP8;
-            if (mem->sib.base != (uint8_t)-1)
-                modrm->mod = immsize(mem->val) == 1 ? 1 : 2;
-            else
-                sib->base = 0b101;
         }
-
-        if (mem->sib.idx == (uint8_t)-1 && mem->sib.base != (uint8_t)-1 && mem->sib.base != REG_SP)
-            modrm->rm = mem->sib.base;
         else
         {
-            modrm->rm = 0b100;
+            if (mem->sib.base == REG_RIP)
+            {
+                modrm->mod = 0;
+                modrm->rm = 0b101;
+                return;
+            }
 
-            sib->scale = mem->sib.scale == 8 ? 3
-                       : mem->sib.scale == 4 ? 2
-                       : mem->sib.scale == 2 ? 1 : 0;
+            if (!(mem->sib.flags & SIB_NODISP))
+            {
+                if (immsize(mem->val) == 1)
+                    mem->sib.flags |= SIB_DISP8;
+                if (mem->sib.base != (uint8_t)-1)
+                    modrm->mod = immsize(mem->val) == 1 ? 1 : 2;
+                else
+                    sib->base = 0b101;
+            }
 
-            sib->idx = mem->sib.idx == (uint8_t)-1 ? 0b100 : mem->sib.idx;
-            sib->base = mem->sib.base == (uint8_t)-1 ? 0b101 : mem->sib.base;
-            sib->flags |= SIB_USED;
+            if (mem->sib.idx == (uint8_t)-1 && mem->sib.base != (uint8_t)-1 && mem->sib.base != REG_SP)
+                modrm->rm = mem->sib.base;
+            else
+            {
+                modrm->rm = 0b100;
+
+                sib->scale = mem->sib.scale == 8 ? 3
+                           : mem->sib.scale == 4 ? 2
+                           : mem->sib.scale == 2 ? 1 : 0;
+
+                sib->idx = mem->sib.idx == (uint8_t)-1 ? 0b100 : mem->sib.idx;
+                sib->base = mem->sib.base == (uint8_t)-1 ? 0b101 : mem->sib.base;
+                sib->flags |= SIB_USED;
+            }
         }
     }
 }
@@ -272,7 +282,13 @@ size_t instsize64(struct inst *inst, struct code *code)
         s += code->op2.sib.flags & SIB_DISP8 ? 1 : 4;
 
     if (ISIMM(code->op1.type))
-        s += (inst->op1 & OP_SIZEM) >> 3;
+    {
+        int size = inst->op1 & OP_SIZEM;
+        if (inst->flags & IF_REL)
+            size = g_currsize == 16 ? OP_SIZE16 : OP_SIZE32;
+
+        s += size >> 3;
+    }
 
     return s;
 }
@@ -327,6 +343,10 @@ void assemble64(struct code *code, struct inst *inst, size_t lc)
 
     if (ISIMM(code->op1.type))
     {
+        int size = inst->op1 & OP_SIZEM;
+        if (inst->flags & IF_REL)
+            size = g_currsize == 16 ? OP_SIZE16 : OP_SIZE32;
+
         struct symbol *sym = NULL;
         if (code->op1.sym)
         {
@@ -351,7 +371,7 @@ void assemble64(struct code *code, struct inst *inst, size_t lc)
                     sect_add_reloc(g_currsect, ftell(g_outf) - g_currsect->offset, sym, -4, 0);
                     code->op1.val = 0;
 
-                    emit(inst->op1 & OP_SIZEM, code->op1.val);
+                    emit(size, code->op1.val);
                     return;
                 }
             }
@@ -368,6 +388,6 @@ void assemble64(struct code *code, struct inst *inst, size_t lc)
             code->op1.val = 0;
         }
 
-        emit(inst->op1 & OP_SIZEM, code->op1.val);
+        emit(size, code->op1.val);
     }
 }
