@@ -1,5 +1,6 @@
 #define extern_
 #include "decl.h"
+#include "link.h"
 
 #include <stdio.h>
 #include <getopt.h>
@@ -11,7 +12,10 @@
 static char *inf_name = NULL;
 static char *outf_name = NULL;
 
-static Elf64_Ehdr s_ehdr = { 0 };
+static int isbin = 0;
+static size_t base = 0;
+
+//static Elf64_Ehdr s_ehdr = { 0 };
 
 void usage()
 {
@@ -22,28 +26,26 @@ void usage()
 void parse_cmd_opts(int argc, char **argv)
 {
     char opt;
-    while ((opt = getopt(argc, argv, "o:")) != -1)
+    while ((opt = getopt(argc, argv, "o:s:b")) != -1)
     {
         switch (opt)
         {
             case 'o':
                 outf_name = strdup(optarg);
                 break;
+            case 's':
+                base = strtoul(optarg + 2, NULL, 16);
+                break;
+            case 'b':
+                isbin = 1;
+                break;
         }
     }
 
-    for (char **arg = argv + 1; *arg; arg++)
-    {
-        if ((*arg)[0] == '-' && (*arg)[1] == 'o') arg++;
-        else
-        {
-            inf_name = strdup(*arg);
-            break;
-        }
-    }
-
-    if (!inf_name)
+    if (!argv[optind])
         usage();
+
+    inf_name = argv[optind];
 
     if (!outf_name)
         outf_name = strdup("a.out");
@@ -75,7 +77,12 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    unsigned char ident[EI_NIDENT] = {
+    if (isbin)
+        link_binary(base);
+    else
+        link_elf();
+
+    /*unsigned char ident[EI_NIDENT] = {
         [EI_MAG0]       = ELFMAG0,
         [EI_MAG1]       = ELFMAG1,
         [EI_MAG2]       = ELFMAG2,
@@ -104,7 +111,7 @@ int main(int argc, char **argv)
         .p_flags = PF_X | PF_R | PF_W
     };
 
-    fwrite(&phdr, sizeof(Elf64_Phdr), 1, g_outf);
+    fwrite(&phdr, sizeof(Elf64_Phdr), 1, g_outf);*/
 
     return 0;
 }
