@@ -146,6 +146,21 @@ static struct inst s_insttbl[] = {
     { .mnem = "cwd", .opcode = 0x99, .reg = -1, .size = OP_SIZE16 },
     { .mnem = "cdq", .opcode = 0x99, .reg = -1, .size = OP_SIZE32 },
     { .mnem = "cqo", .opcode = 0x99, .reg = -1, .size = OP_SIZE64 },
+    
+    { .mnem = "hlt", .opcode = 0xf4, .reg = -1 },
+    { .mnem = "cli", .opcode = 0xfa, .reg = -1 },
+    { .mnem = "sti", .opcode = 0xfb, .reg = -1 },
+    { .mnem = "cld", .opcode = 0xfc, .reg = -1 },
+    { .mnem = "std", .opcode = 0xfd, .reg = -1 },
+
+    { .mnem = "iret",  .opcode = 0xcf, .reg = -1, .size = OP_SIZE16 },
+    { .mnem = "iretd", .opcode = 0xcf, .reg = -1, .size = OP_SIZE32 },
+    { .mnem = "iretq", .opcode = 0xcf, .reg = -1, .size = OP_SIZE64 },
+
+    { .mnem = "ltr", .pre = 0x0f, .opcode = 0, .op1 = OP_RM | OP_SIZE16, .reg = 3 },
+    { .mnem = "lgdt", .pre = 0x0f, .opcode = 1, .op1 = OP_MEM | OP_SIZE64, .reg = 2 },
+    { .mnem = "lidt", .pre = 0x0f, .opcode = 1, .op1 = OP_MEM | OP_SZEX8, .reg = 3 },
+
 };
 
 struct inst *searchi64(struct code *code)
@@ -181,15 +196,14 @@ void mkmodrmsib(struct modrm *modrm, struct sib *sib, struct code *code, struct 
     struct codeop *rm = (inst->op1 & OP_TYPEM) == OP_RM && ISRM(code->op1.type) ? &code->op1
                       : (inst->op2 & OP_TYPEM) == OP_RM && ISRM(code->op2.type) ? &code->op2 : NULL;
 
-    if (!reg && !rm) return;
-
     if (!modrm->reg && reg && reg != rm) modrm->reg = reg->val;
-    if (!mem)
+    if (!mem && (reg || rm))
     {
         modrm->mod = 0b11;
         if (rm) modrm->rm = rm->val;
     }
-    else
+    
+    if (mem)
     {
         if (!(mem->sib.flags & SIB_32BIT) && g_currsize == 16)
             mem->sib.flags |= SIB_16BIT;
@@ -220,7 +234,7 @@ void mkmodrmsib(struct modrm *modrm, struct sib *sib, struct code *code, struct 
 
             if (!(mem->sib.flags & SIB_NODISP))
             {
-                if (immsize(mem->val) == 1)
+                if (immsize(mem->val) == 1 && mem->sib.base != REG_NUL)
                     mem->sib.flags |= SIB_DISP8;
                 if (mem->sib.base != REG_NUL)
                     modrm->mod = immsize(mem->val) == 1 ? 1 : 2;
@@ -228,6 +242,7 @@ void mkmodrmsib(struct modrm *modrm, struct sib *sib, struct code *code, struct 
                     sib->base = 0b101;
             }
 
+            printf("%d, %d\n", mem->sib.idx, mem->sib.base);
             if (mem->sib.idx == REG_NUL && mem->sib.base != REG_NUL && mem->sib.base != REG_SP)
                 modrm->rm = mem->sib.base;
             else
@@ -349,7 +364,7 @@ void assemble64(struct code *code, struct inst *inst, size_t lc)
             else
                 code->op1.val = sym->val;
         }
-        
+
         emit(code->op1.sib.flags & SIB_DISP8 ? OP_SIZE8 : OP_SIZE32, code->op1.val);
     }
     else if (ISMEM(code->op2.type) && !(code->op2.sib.flags & SIB_NODISP))
