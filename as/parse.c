@@ -95,8 +95,8 @@ static struct codeop parse_op()
             //if (!isdigit(*str) && *str != '-' && *str != '(') error(); // TODO
 
             op.type |= OP_MEM;
-            op.sib.base = (uint8_t)-1;
-            op.sib.idx = (uint8_t)-1;
+            op.sib.base = REG_NUL;
+            op.sib.idx = REG_NUL;
 
             if (isdigit(*s_str) || *s_str == '-')
             {
@@ -173,25 +173,6 @@ struct code parse_code(const char *str)
         code.op2.type &= ~OP_SIZEM;
         code.op2.type |= code.op1.type & OP_SIZEM;
     }
-
-    /*if (code.op2.type & OP_MEM)
-    {
-        code.op2.type &= ~OP_SIZEM;
-        if (code.op1.type & OP_IMM)
-        {
-            char suf = code.mnem[strlen(code.mnem) - 1];
-            switch (suf)
-            {
-                case 'b': code.op2.type |= 1 << 3; break;
-                case 'w': code.op2.type |= 2 << 3; break;
-                case 'l': code.op2.type |= 4 << 3; break;
-                case 'q': code.op2.type |= 8 << 3; break;
-            }
-
-            code.mnem[strlen(code.mnem) - 1] = 0;
-        }
-        else code.op2.type |= code.op1.type & OP_SIZEM;
-    }*/
 
     return code;
 }

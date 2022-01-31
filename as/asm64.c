@@ -191,9 +191,23 @@ void mkmodrmsib(struct modrm *modrm, struct sib *sib, struct code *code, struct 
     }
     else
     {
+        if (!(mem->sib.flags & SIB_32BIT) && g_currsize == 16)
+            mem->sib.flags |= SIB_16BIT;
+
         if (mem->sib.flags & SIB_16BIT)
         {
+            if (!(mem->sib.flags & SIB_NODISP) && mem->sib.base != REG_NUL)
+            {
+                if (immsize(mem->val) == 1)
+                    mem->sib.flags |= SIB_DISP8;
+                modrm->mod = immsize(mem->val) == 1 ? 1 : 2;
+            }
 
+            if (mem->sib.idx == REG_NUL) modrm->rm |= 0b100;
+            if (mem->sib.base == REG_BP || mem->sib.base == REG_NUL) modrm->rm |= 0b010;
+            if (mem->sib.idx == REG_DI || mem->sib.base == REG_DI) modrm->rm |= 0b001;
+
+            if (mem->sib.base == REG_BX && mem->sib.idx == REG_NUL) modrm->rm = 0b111;
         }
         else
         {
@@ -208,13 +222,13 @@ void mkmodrmsib(struct modrm *modrm, struct sib *sib, struct code *code, struct 
             {
                 if (immsize(mem->val) == 1)
                     mem->sib.flags |= SIB_DISP8;
-                if (mem->sib.base != (uint8_t)-1)
+                if (mem->sib.base != REG_NUL)
                     modrm->mod = immsize(mem->val) == 1 ? 1 : 2;
                 else
                     sib->base = 0b101;
             }
 
-            if (mem->sib.idx == (uint8_t)-1 && mem->sib.base != (uint8_t)-1 && mem->sib.base != REG_SP)
+            if (mem->sib.idx == REG_NUL && mem->sib.base != REG_NUL && mem->sib.base != REG_SP)
                 modrm->rm = mem->sib.base;
             else
             {
@@ -224,8 +238,8 @@ void mkmodrmsib(struct modrm *modrm, struct sib *sib, struct code *code, struct 
                            : mem->sib.scale == 4 ? 2
                            : mem->sib.scale == 2 ? 1 : 0;
 
-                sib->idx = mem->sib.idx == (uint8_t)-1 ? 0b100 : mem->sib.idx;
-                sib->base = mem->sib.base == (uint8_t)-1 ? 0b101 : mem->sib.base;
+                sib->idx = mem->sib.idx == REG_NUL ? 0b100 : mem->sib.idx;
+                sib->base = mem->sib.base == REG_NUL ? 0b101 : mem->sib.base;
                 sib->flags |= SIB_USED;
             }
         }
@@ -255,7 +269,7 @@ size_t instsize64(struct inst *inst, struct code *code)
 {
     size_t s = 1; // opcode
 
-    struct modrm modrm = { .reg = inst->reg != (uint8_t)-1 ? inst->reg : 0 };
+    struct modrm modrm = { .reg = inst->reg != REG_NUL ? inst->reg : 0 };
     struct sib sib = { 0 };
     mkmodrmsib(&modrm, &sib, code, inst);
    
@@ -295,7 +309,7 @@ size_t instsize64(struct inst *inst, struct code *code)
 
 void assemble64(struct code *code, struct inst *inst, size_t lc)
 {
-    struct modrm modrm = { .reg = inst->reg != (uint8_t)-1 ? inst->reg : 0 };
+    struct modrm modrm = { .reg = inst->reg != REG_NUL ? inst->reg : 0 };
     struct sib sib = { 0 };
     mkmodrmsib(&modrm, &sib, code, inst);
 

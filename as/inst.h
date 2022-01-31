@@ -53,6 +53,8 @@
 // Special register
 #define REG_RIP 0b10000
 
+#define REG_NUL ((uint8_t)-1)
+
 struct modrm
 {
     uint8_t mod, reg, rm;
