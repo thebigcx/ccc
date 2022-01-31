@@ -131,13 +131,13 @@ void elf_end_file()
                 for (struct symbol *s = g_syms; s; s = s->next, symidx++)
                     if (s == sym) break;
 
-                uint8_t type = r->flags & REL_PCREL ? R_X86_64_PC32
+                /*uint8_t type = r->flags & REL_PCREL ? R_X86_64_PC32
                              : r->sym->flags & SYM_UNDEF ? R_X86_64_PLT32
-                             : R_X86_64_32S;
+                             : R_X86_64_32S;*/
 
                 Elf64_Rela rela = {
                     .r_offset = r->offset,
-                    .r_info = ELF64_R_INFO(symidx, type),
+                    .r_info = ELF64_R_INFO(symidx, r->flags),
                     .r_addend = r->addend,
                 };
 

@@ -260,7 +260,9 @@ static struct inst s_insttbl[] = {
     { .mnem = "mov", .opcode = 0x8b, .op1 = OP_RM | OP_SZEX8, .op2 = OP_REG | OP_SZEX8, .reg = -1  },
 
     { .mnem = "mov", .opcode = 0xc6, .op1 = OP_IMM | OP_SIZE8, .op2 = OP_RM | OP_SIZE8, .reg = 0 },
-    { .mnem = "mov", .opcode = 0xc7, .op1 = OP_IMM | OP_SIZE32, .op2 = OP_RM | OP_SIZE64, .reg = 0 },
+    { .mnem = "mov", .opcode = 0xc7, .op1 = OP_IMM | OP_SIZE16, .op2 = OP_RM | OP_SIZE16, .reg = 0 },
+    { .mnem = "mov", .opcode = 0xc7, .op1 = OP_IMM | OP_SIZE32, .op2 = OP_RM | OP_SIZE32, .reg = 0 },
+    { .mnem = "mov", .opcode = 0xc7, .op1 = OP_IMM | OP_SIZE64, .op2 = OP_RM | OP_SIZE64, .reg = 0 },
     { .mnem = "mov", .opcode = 0xb0, .op1 = OP_IMM | OP_SIZE8, .op2 = OP_REG | OP_SIZE8, .reg = -1, .flags = IF_ROPCODE  },
     { .mnem = "mov", .opcode = 0xb8, .op1 = OP_IMM | OP_SIZE64, .op2 = OP_REG | OP_SIZE64, .reg = -1, .flags = IF_ROPCODE  },
 
@@ -528,7 +530,7 @@ void assemble(struct code *code, struct inst *inst, size_t lc)
             struct symbol *sym = findsym(code->op1.sym);
             if (code->op1.sib.base == REG_RIP)
             {
-                sect_add_reloc(g_currsect, ftell(g_outf) - g_currsect->offset, sym, sym->val - 4, REL_PCREL);
+                sect_add_reloc(g_currsect, ftell(g_outf) - g_currsect->offset, sym, sym->val - 4, REL_PC32);
                 code->op1.val = 0;
             }
             else
@@ -567,7 +569,7 @@ void assemble(struct code *code, struct inst *inst, size_t lc)
                 }
                 if (sym->flags & SYM_UNDEF)
                 {
-                    sect_add_reloc(g_currsect, ftell(g_outf) - g_currsect->offset, sym, -4, 0);
+                    sect_add_reloc(g_currsect, ftell(g_outf) - g_currsect->offset, sym, -4, REL_PLT);
                     code->op1.val = 0;
 
                     emit(size, code->op1.val);
@@ -583,7 +585,11 @@ void assemble(struct code *code, struct inst *inst, size_t lc)
         }
         else if (code->op1.sym)
         {
-            sect_add_reloc(g_currsect, ftell(g_outf) - g_currsect->offset, sym, sym->val, 0);
+            int type = size == 16 ? REL_16
+                     : size == 32 ? REL_32S
+                     : REL_64;
+
+            sect_add_reloc(g_currsect, ftell(g_outf) - g_currsect->offset, sym, sym->val, type);
             code->op1.val = 0;
         }
 

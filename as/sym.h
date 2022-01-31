@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <elf.h>
 
 #define SYM_GLOB  (1 << 0)
 #define SYM_SECT  (1 << 1)
@@ -33,7 +34,11 @@ struct symbol *findsym(const char *name);
 struct symbol *addsym(struct symbol *sym);
 void sort_symbols();
 
-#define REL_PCREL 1
+#define REL_PC32  R_X86_64_PC32
+#define REL_64    R_X86_64_64
+#define REL_32S   R_X86_64_32S
+#define REL_16    R_X86_64_16
+#define REL_PLT   R_X86_64_PLT32
 
 struct reloc
 {

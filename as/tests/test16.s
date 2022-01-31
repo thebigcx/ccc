@@ -2,3 +2,4 @@
     .section .text
 label:
     jmp $label
+    mov $label, %ax
