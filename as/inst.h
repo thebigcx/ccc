@@ -60,8 +60,9 @@ struct modrm
 
 #define SIB_USED   (1 << 0) // Used
 #define SIB_NODISP (1 << 1) // No displacement
-#define SIB_32BIT  (1 << 2) // 32-bit address
-#define SIB_DISP8  (1 << 3) // 8-bit displacement
+#define SIB_16BIT  (1 << 2) // 32-bit address
+#define SIB_32BIT  (1 << 3) // 32-bit address
+#define SIB_DISP8  (1 << 4) // 8-bit displacement
 
 struct sib
 {

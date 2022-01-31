@@ -11,8 +11,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-static struct inst s_insttbl[] =
-{
+static struct inst s_insttbl[] = {
     // Arithmetic
     { .mnem = "add", .opcode = 0x00, .op1 = OP_REG | OP_SIZE8, .op2 = OP_RM | OP_SIZE8, .reg = -1 },
     { .mnem = "add", .opcode = 0x01, .op1 = OP_REG | OP_SZEX8, .op2 = OP_RM | OP_SZEX8, .reg = -1 },
@@ -223,9 +222,24 @@ void mkmodrmsib(struct modrm *modrm, struct sib *sib, struct code *code, struct 
     }
 }
 
-// Operand-size override prefix
-#define OPOVPRE(code, inst) ((inst).size & OP_SIZE16 || ISREGSZ((code).op1.type, OP_SIZE16) || ISREGSZ((code).op2.type, OP_SIZE16))
-#define ADROVPRE(code, inst) ((ISMEM((code).op1.type) && (code).op1.sib.flags & SIB_32BIT) || (ISMEM((code).op2.type) && (code).op2.sib.flags & SIB_32BIT))
+// Need operand-size override prefix (0x66)
+int need_opover(struct inst *inst, struct code *code)
+{
+    // For long/protected mode, 16-bit instructions
+    // For real mode, 32-bit instructions
+    int size = g_currsize == 16 ? OP_SIZE32 : OP_SIZE16;
+    return (inst->size & size || ISREGSZ(code->op1.type, size) || ISREGSZ(code->op2.type, size));
+}
+
+// Need address-size override prefix (0x67)
+int need_adrover(struct code *code)
+{
+    // For long/real mode, 32-bit addressing
+    // For protected mode, 16-bit addressing
+    int flag = g_currsize == 32 ? SIB_16BIT : SIB_32BIT;
+    return (ISMEM(code->op1.type) && (code->op1.sib.flags & flag))
+        || (ISMEM(code->op2.type) && (code->op2.sib.flags & flag));
+}
 
 size_t instsize64(struct inst *inst, struct code *code)
 {
@@ -234,12 +248,15 @@ size_t instsize64(struct inst *inst, struct code *code)
     struct modrm modrm = { .reg = inst->reg != (uint8_t)-1 ? inst->reg : 0 };
     struct sib sib = { 0 };
     mkmodrmsib(&modrm, &sib, code, inst);
-    
-    uint8_t rex = mkrex(iscode64(code, inst), &modrm);
-    if (rex != REXFIX) s++;
+   
+    if (g_currsize == 64)
+    {
+        uint8_t rex = mkrex(iscode64(code, inst), &modrm);
+        if (rex != REXFIX) s++;
+    }
 
-    if (OPOVPRE(*code, *inst)) s++;
-    if (ADROVPRE(*code, *inst)) s++;
+    if (need_opover(inst, code)) s++;
+    if (need_adrover(code)) s++;
 
     if (inst->pre) s++;
 
@@ -265,12 +282,15 @@ void assemble64(struct code *code, struct inst *inst, size_t lc)
     struct modrm modrm = { .reg = inst->reg != (uint8_t)-1 ? inst->reg : 0 };
     struct sib sib = { 0 };
     mkmodrmsib(&modrm, &sib, code, inst);
-    
-    uint8_t rex = mkrex(iscode64(code, inst), &modrm);
-    if (rex != REXFIX) emit8(rex);
 
-    if (OPOVPRE(*code, *inst)) emit8(0x66);
-    if (ADROVPRE(*code, *inst)) emit8(0x67);
+    if (g_currsize == 64)
+    {
+        uint8_t rex = mkrex(iscode64(code, inst), &modrm);
+        if (rex != REXFIX) emit8(rex);
+    }
+
+    if (need_opover(inst, code)) emit8(0x66);
+    if (need_adrover(code)) emit8(0x67);
 
     if (inst->pre) emit8(inst->pre);
 

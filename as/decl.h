@@ -13,3 +13,4 @@ extern_ FILE *g_outf; // Output file
 extern_ struct symbol *g_syms; // Symbol table
 extern_ struct section *g_sects; // Sections
 extern_ struct section *g_currsect; // Current section
+extern_ size_t g_currsize; // Current assembly size (16-bit/64-bit)

@@ -70,6 +70,8 @@ int main(int argc, char **argv)
 
     atexit(cleanup);
 
+    g_currsize = 64;
+
     printf("as %s -o %s\n", inf_name, outf_name);
 
     struct symbol sym = {

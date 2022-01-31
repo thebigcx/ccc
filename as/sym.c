@@ -82,15 +82,30 @@ void collect_syms()
                 strt += 6;
                 lc += xstrtonum(strt, NULL);
             }
+            else if (!strncmp(strt, ".code16", 7))
+                g_currsize = 16;
+            else if (!strncmp(strt, ".code64", 7))
+                g_currsize = 64;
         }
         else if (isalpha(*strt))
         {
             // Instruction
-            struct code code = parse_code(strt);
-            struct inst *inst = searchi64(&code);
-            if (!inst)
-                error("Line %d: Invalid instruction: %s\n", lineno, line);
-            lc += instsize64(inst, &code);
+            //if (g_currsize == 64)
+            //{
+                struct code code = parse_code(strt);
+                struct inst *inst = searchi64(&code);
+                if (!inst)
+                    error("Line %d: Invalid instruction: %s\n", lineno, line);
+                lc += instsize64(inst, &code);
+            /*}
+            else if (g_currsize == 16)
+            {
+                struct code code = parse_code(strt);
+                struct inst *inst = searchi16(&code);
+                if (!inst)
+                    error("Line %d: Invalid instruction: %s\n", lineno, line);
+                lc += instsize16(inst, &code);
+            }*/
         }
     }
 

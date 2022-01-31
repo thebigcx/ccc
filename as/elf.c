@@ -83,7 +83,7 @@ static void write_section(struct section *sect)
         {
             size_t lastloc = 1, i = 0;
             for (struct symbol *sym = g_syms; sym; sym = sym->next, i++)
-                if (sym->flags & SYM_GLOB) { lastloc = i + 1; break; }
+                if (!(sym->flags & SYM_GLOB)) lastloc++;
 
             shdr.sh_type = SHT_SYMTAB;
             shdr.sh_info = lastloc;

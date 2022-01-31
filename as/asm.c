@@ -164,19 +164,37 @@ void assemble_file()
                 for (size_t i = 0; i < s; i++)
                     emit8(0);
             }
+            else if (!strcmp(direct, ".code16"))
+                g_currsize = 16;
+            else if (!strcmp(direct, ".code64"))
+                g_currsize = 64;
 
             free(direct);
             continue;
         }
 
-        struct code code = parse_code(strt);
-        struct inst *ent = searchi64(&code);
-        if (!ent)
-            error("Invalid instruction\n");
+        //if (g_currsize == 64)
+        //{
+            struct code code = parse_code(strt);
+            struct inst *ent = searchi64(&code);
+            if (!ent)
+                error("Invalid instruction\n");
 
-        lc += instsize64(ent, &code);
+            lc += instsize64(ent, &code);
 
-        assemble64(&code, ent, lc);
+            assemble64(&code, ent, lc);
+        /*}
+        else if (g_currsize == 16)
+        {
+            struct code code = parse_code(strt);
+            struct inst *ent = searchi16(&code);
+            if (!ent)
+                error("Invalid instruction\n");
+
+            lc += instsize16(ent, &code);
+
+            assemble16(&code, ent, lc);
+        }*/
     }
 
     if (g_currsect) g_currsect->size = ftell(g_outf) - g_currsect->offset;
