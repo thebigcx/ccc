@@ -61,6 +61,20 @@ static void parse_reg(struct codeop *op)
     
     if (*s_str == 'l') { op->type |= OP_SIZE8; s_str++; }
     else if (!(op->type & OP_SIZEM)) op->type |= OP_SIZE16;
+    
+    if (*s_str == 'h')
+    {
+        switch (op->val)
+        {
+            case REG_AX: op->val = REG_AH; break;
+            case REG_CX: op->val = REG_CH; break;
+            case REG_DX: op->val = REG_DH; break;
+            case REG_BX: op->val = REG_BH; break;
+        }
+
+        op->type |= OP_HIREG | OP_SIZE8;
+        s_str++;
+    }
 
     if (*s_str == 'x') s_str++;
 }
