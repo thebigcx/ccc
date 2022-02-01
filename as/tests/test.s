@@ -1,8 +1,8 @@
     .section .text
     .global main
+    .code16
 main:
-    mov $str, %eax
-    ret
+    mov %cs:(%eax), %eax
 
     .section .data
 str:

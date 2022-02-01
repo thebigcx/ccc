@@ -452,6 +452,19 @@ int need_adrover(struct code *code)
         || (ISMEM(code->op2.type) && (code->op2.sib.flags & flag));
 }
 
+void segover(uint8_t seg)
+{
+    switch (seg)
+    {
+        case REG_CS: emit8(0x2e); break;
+        case REG_SS: emit8(0x36); break;
+        case REG_DS: emit8(0x3e); break;
+        case REG_ES: emit8(0x26); break;
+        case REG_FS: emit8(0x64); break;
+        case REG_GS: emit8(0x65); break;
+    }
+}
+
 size_t instsize(struct inst *inst, struct code *code)
 {
     size_t s = 1; // opcode
@@ -465,6 +478,11 @@ size_t instsize(struct inst *inst, struct code *code)
         uint8_t rex = mkrex(iscode64(code, inst), &modrm);
         if (rex != REXFIX) s++;
     }
+
+    if (ISMEM(code->op1.type) && code->op1.sib.seg != REG_NUL)
+        s++;
+    else if (ISMEM(code->op2.type) && code->op2.sib.seg != REG_NUL)
+        s++;
 
     if (need_opover(inst, code)) s++;
     if (need_adrover(code)) s++;
@@ -499,6 +517,11 @@ void assemble(struct code *code, struct inst *inst, size_t lc)
     struct modrm modrm = { .reg = inst->reg != REG_NUL ? inst->reg : 0 };
     struct sib sib = { 0 };
     mkmodrmsib(&modrm, &sib, code, inst);
+
+    if (ISMEM(code->op1.type) && code->op1.sib.seg != REG_NUL)
+        segover(code->op1.sib.seg);
+    else if (ISMEM(code->op2.type) && code->op2.sib.seg != REG_NUL)
+        segover(code->op2.sib.seg);
 
     if (g_currsize == 64)
     {

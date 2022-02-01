@@ -61,6 +61,13 @@
 #define REG_CR6 0b0110
 #define REG_CR7 0b0111
 
+#define REG_ES  0b0000
+#define REG_CS  0b0001
+#define REG_SS  0b0010
+#define REG_DS  0b0011
+#define REG_FS  0b0100
+#define REG_GS  0b0101
+
 // Special register
 #define REG_RIP 0b10000
 
@@ -81,6 +88,7 @@ struct sib
 {
     int flags;
     uint8_t scale, idx, base;
+    uint8_t seg;
 };
 
 #define IF_ROPCODE (1 << 0) // opcode+r

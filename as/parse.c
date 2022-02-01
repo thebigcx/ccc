@@ -15,6 +15,14 @@ static void parse_reg(struct codeop *op)
 
     s_str++;
 
+    if (!strncmp(s_str, "cs", 2))
+    {
+        op->type |= OP_SIZE32;
+        op->val = REG_CS;
+        s_str += 2;
+        return;
+    }
+
     if (*s_str == 'e')      { op->type |= OP_SIZE32; s_str++; }
     else if (*s_str == 'r') { op->type |= OP_SIZE64; s_str++; }
    
@@ -62,9 +70,56 @@ static uint64_t parse_digit_op()
     return xstrtonum(s_str, &s_str);
 }
 
+static void parse_address(struct codeop *op)
+{
+    op->type = OP_MEM;
+    op->sib.base = REG_NUL;
+    op->sib.idx  = REG_NUL;
+
+    if (isdigit(*s_str) || *s_str == '-')
+    {
+        op->val = parse_digit_op();
+    }
+    else if (isalpha(*s_str) || *s_str == '_')
+    {
+        op->sym = strndup(s_str, strpbrk(s_str, ",\n(") - s_str);
+        s_str = strpbrk(s_str, ",\n(");
+    }
+    else op->sib.flags |= SIB_NODISP;
+
+    if (*s_str != '(') return;
+
+    s_str++;
+
+    struct codeop reg = { 0 };
+    if (*s_str != ',')
+    {
+        parse_reg(&reg);
+        op->sib.base = reg.val;
+        if (ISREGSZ(reg.type, OP_SIZE32)) op->sib.flags |= SIB_32BIT;
+        else if (ISREGSZ(reg.type, OP_SIZE16)) op->sib.flags |= SIB_16BIT;
+    }
+
+    if (*s_str++ == ')') return;
+
+    if (*s_str != ',')
+    {
+        parse_reg(&reg);
+        op->sib.idx = reg.val;
+        if (ISREGSZ(reg.type, OP_SIZE32)) op->sib.flags |= SIB_32BIT;
+        else if (ISREGSZ(reg.type, OP_SIZE16)) op->sib.flags |= SIB_16BIT;
+    }
+    s_str++;
+
+    if (*s_str != ')') op->sib.scale = parse_digit_op();
+
+    s_str++;
+}
+
 static struct codeop parse_op()
 {
     struct codeop op = { 0 };
+    op.sib.seg = REG_NUL;
 
     if (!strncmp(s_str, "u8 ", 3)) { op.type |= OP_SIZE8; s_str += 3; }
     else if (!strncmp(s_str, "u16 ", 4)) { op.type |= OP_SIZE16; s_str += 4; }
@@ -75,6 +130,12 @@ static struct codeop parse_op()
     {
         case '%':
             parse_reg(&op);
+            if (*s_str == ':')
+            {
+                op.sib.seg = op.val;
+                s_str++;
+                parse_address(&op);
+            }
             break;
 
         case '$': // TODO: evaluate constant expressions
@@ -92,50 +153,7 @@ static struct codeop parse_op()
 
         default:
         {
-            //if (!isdigit(*str) && *str != '-' && *str != '(') error(); // TODO
-
-            op.type |= OP_MEM;
-            op.sib.base = REG_NUL;
-            op.sib.idx = REG_NUL;
-
-            if (isdigit(*s_str) || *s_str == '-')
-            {
-                op.val = parse_digit_op();
-            }
-            else if (isalpha(*s_str) || *s_str == '_')
-            {
-                op.sym = strndup(s_str, strpbrk(s_str, ",\n(") - s_str);
-                s_str = strpbrk(s_str, ",\n(");
-            }
-            else op.sib.flags |= SIB_NODISP;
-
-            if (*s_str != '(') break;
-
-            s_str++;
-
-            struct codeop reg = { 0 };
-            if (*s_str != ',')
-            {
-                parse_reg(&reg);
-                op.sib.base = reg.val;
-                if (ISREGSZ(reg.type, OP_SIZE32)) op.sib.flags |= SIB_32BIT;
-                else if (ISREGSZ(reg.type, OP_SIZE16)) op.sib.flags |= SIB_16BIT;
-            }
-
-            if (*s_str++ == ')') break;
-
-            if (*s_str != ',')
-            {
-                parse_reg(&reg);
-                op.sib.idx = reg.val;
-                if (ISREGSZ(reg.type, OP_SIZE32)) op.sib.flags |= SIB_32BIT;
-                else if (ISREGSZ(reg.type, OP_SIZE16)) op.sib.flags |= SIB_16BIT;
-            }
-            s_str++;
-
-            if (*s_str != ')') op.sib.scale = parse_digit_op();
-
-            s_str++;
+            parse_address(&op);
             break;
         }
     }
