@@ -46,11 +46,13 @@ void error(const char *format, ...)
     exit(-1);
 }
 
-char *stresc(const char *str)
+char *stresc(const char *str, char delim, size_t *len)
 {
+    const char *ostr = str;
+
     char buf[256] = { 0 }; // TODO: this is bad
     char *strp = buf;
-    for (; *str && *str != '"'; str++)
+    for (; *str && *str != delim; str++)
     {
         if (*str == '\\')
         {
@@ -62,6 +64,9 @@ char *stresc(const char *str)
         }
         else *strp++ = *str;
     }
+
+    if (len)
+        *len = (size_t)(str - ostr) + 1;
 
     return strdup(buf);
 }

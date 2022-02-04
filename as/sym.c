@@ -54,7 +54,7 @@ void collect_syms()
             if (!strncmp(strt, ".str", 4))
             {
                 char *direct = strt + 6;
-                char *str = stresc(direct);
+                char *str = stresc(direct, '"', NULL);
                 lc += strlen(str) + 1;
                 free(str);
             }

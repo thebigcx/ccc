@@ -130,6 +130,23 @@ static void parse_address(struct codeop *op)
     s_str++;
 }
 
+static int parse_charconst()
+{
+    s_str++;
+
+    size_t len;
+    char *v = stresc(s_str, '\'', &len);
+
+    if (strlen(v) > 1)
+        error("Invalid character constant\n");
+
+    s_str += len;
+
+    char c = *v;
+    free(v);
+    return c;
+}
+
 static struct codeop parse_op()
 {
     struct codeop op = { 0 };
@@ -157,6 +174,8 @@ static struct codeop parse_op()
             op.type |= OP_IMM;
 
             if (isdigit(*(++s_str))) op.val = parse_digit_op();
+            else if (*s_str == '\'')
+                op.val = parse_charconst();
             else
             {
                 op.sym = strndup(s_str, strpbrk(s_str, ",\n") - s_str);

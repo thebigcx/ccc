@@ -112,7 +112,7 @@ void assemble_file()
             else if (!strcmp(direct, ".str"))
             {
                 strt += strlen(direct) + 2;
-                char *str = stresc(strt);
+                char *str = stresc(strt, '"', NULL);
 
                 fputs(str, g_outf);
                 fputc(0, g_outf);
@@ -259,12 +259,13 @@ static struct inst s_insttbl[] = {
     { .mnem = "mov", .opcode = 0x8a, .op1 = OP_RM | OP_SIZE8, .op2 = OP_REG | OP_SIZE8, .reg = -1  },
     { .mnem = "mov", .opcode = 0x8b, .op1 = OP_RM | OP_SZEX8, .op2 = OP_REG | OP_SZEX8, .reg = -1  },
 
+    { .mnem = "mov", .opcode = 0xb0, .op1 = OP_IMM | OP_SIZE8, .op2 = OP_REG | OP_SIZE8, .reg = -1, .flags = IF_ROPCODE  },
+    { .mnem = "mov", .opcode = 0xb8, .op1 = OP_IMM | OP_SIZE64, .op2 = OP_REG | OP_SIZE64, .reg = -1, .flags = IF_ROPCODE  },
+
     { .mnem = "mov", .opcode = 0xc6, .op1 = OP_IMM | OP_SIZE8, .op2 = OP_RM | OP_SIZE8, .reg = 0 },
     { .mnem = "mov", .opcode = 0xc7, .op1 = OP_IMM | OP_SIZE16, .op2 = OP_RM | OP_SIZE16, .reg = 0 },
     { .mnem = "mov", .opcode = 0xc7, .op1 = OP_IMM | OP_SIZE32, .op2 = OP_RM | OP_SIZE32, .reg = 0 },
     { .mnem = "mov", .opcode = 0xc7, .op1 = OP_IMM | OP_SIZE64, .op2 = OP_RM | OP_SIZE64, .reg = 0 },
-    { .mnem = "mov", .opcode = 0xb0, .op1 = OP_IMM | OP_SIZE8, .op2 = OP_REG | OP_SIZE8, .reg = -1, .flags = IF_ROPCODE  },
-    { .mnem = "mov", .opcode = 0xb8, .op1 = OP_IMM | OP_SIZE64, .op2 = OP_REG | OP_SIZE64, .reg = -1, .flags = IF_ROPCODE  },
 
     { .mnem = "movzx", .pre = 0x0f, .opcode = 0xb6, .op1 = OP_RM | OP_SIZE8,  .op2 = OP_REG | OP_SZEX8, .reg = -1 },
     { .mnem = "movzx", .pre = 0x0f, .opcode = 0xb7, .op1 = OP_RM | OP_SIZE16, .op2 = OP_REG | OP_SZEX8, .reg = -1 },
